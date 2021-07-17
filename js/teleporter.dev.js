@@ -1,42 +1,42 @@
-// =================
-// Teleporter Script
-// =================
+/* ================= */
+/* Teleporter Script */
+/* ================= */
 
-/* Set Default Settings */
-var teleporter = {fadetime: 2000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading', debug: false}
+/* --- Set Default Settings --- */
+var teleporter = {debug: false, fadetime: 2000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading'};
 
-topwin = window.top;
-if (typeof topwin.poppedstate == 'undefined') {
-	if  (typeof topwin.History == 'function') {topwin.poppedstate = topwin.History.getState();}
-	else {topwin.poppedstate = ('state' in topwin.history && topwin.history.state !== null);}
+/* --- Set Initial Variables --- */
+var ttopwin; ttopwin = teleporter_top_window();
+if (typeof ttopwin.poppedstate == 'undefined') {
+	if  (typeof ttopwin.History == 'function') {ttopwin.poppedstate = ttopwin.History.getState();}
+	else {ttopwin.poppedstate = ('state' in ttopwin.history && ttopwin.history.state !== null);}
 }
-if (typeof topwin.initialurl == 'undefined') {topwin.initialurl = window.location.href;}
+if (typeof ttopwin.initialurl == 'undefined') {ttopwin.initialurl = window.location.href;}
 
 /* --- Transition Page --- */
 function teleporter_transition_page(link) {
 	if ((typeof History != 'function') && !window.history) {return true;}
 
 	/* maybe load existing state */
-	topwin = window.top;
-	if (typeof topwin.stateurls !== 'undefined') {
-		if (teleporter.debug) {console.log(topwin.stateurls);}
-		stateurls = topwin.stateurls;
+	if (typeof ttopwin.stateurls !== 'undefined') {
+		/* if (teleporter.debug) {console.log(ttopwin.stateurls);} */
+		stateurls = ttopwin.stateurls;
 		for (i in stateurls) {
 			if (stateurls[i] == link.href) {
-				if (i == topwin.currentstate) {return false;}
-				if (teleporter.debug) {console.log('Switching to Existing State: '+i);}
+				if (i == ttopwin.currentstate) {return false;}
+				/* if (teleporter.debug) {console.log('Switching to Existing State: '+i);} */
 				teleporter_switch_state(i);
-				title = topwin.statetitles[i];
+				title = ttopwin.statetitles[i];
 				var obj = {id: i, title: title, url: link.href};
-				topwin.pushing = true;
-				if (typeof topwin.History == 'function') {topwin.History.replaceState(obj, title, link.href);}
-				else if (topwin.history) {topwin.history.replaceState(obj, title, link.href);}
-				if (teleporter.debug) {
-					if (typeof topwin.History == 'function') {console.log(topwin.History.getState());}
-					else if (topwin.history) {console.log(topwin.history.state);}
-				}
-				topwin.pushing = false;
-				topwin.currentstate = i;
+				ttopwin.pushing = true;
+				if (typeof ttopwin.History == 'function') {ttopwin.History.replaceState(obj, title, link.href);}
+				else if (ttopwin.history) {ttopwin.history.replaceState(obj, title, link.href);}
+				/* if (teleporter.debug) {
+					if (typeof ttopwin.History == 'function') {console.log(ttopwin.History.getState());}
+					else if (ttopwin.history) {console.log(ttopwin.history.state);}
+				} */
+				ttopwin.pushing = false;
+				ttopwin.currentstate = i;
 				return false;
 			}
 		}
@@ -44,7 +44,7 @@ function teleporter_transition_page(link) {
 
 	/* load new state in new iframe */
 	iframe = teleporter_add_iframe(link.href);
-	if (teleporter.debug) {console.log('Loading New Iframe:'); console.log(iframe);}
+	/* if (teleporter.debug) {console.log('Loading New Iframe:'); console.log(iframe);} */
 
 	/* maybe show loading div */
 	teleporter_show_loading();
@@ -55,20 +55,20 @@ function teleporter_transition_page(link) {
 /* --- Transition Check --- */
 function teleporter_transition_check() {
 
-	href = null; iframe = null; topwin = window.top; topdoc = window.top.document;
-	if (topwin != window.self) {
+	href = null; iframe = null; topdoc = ttopwin.document;
+	if (ttopwin != window.self) {
 		iframes = parent.document.getElementsByClassName(teleporter.iframe);
-		if (teleporter.debug) {console.log(iframes);}
+		/* if (teleporter.debug) {console.log(iframes);} */
 		for (i = 0; i < iframes.length; i++) {
 			/* console.log(window.location.href+' - '+iframes[i].src); */
 			if (window.location.href == iframes[i].src) {iframe = iframes[i];}
 		}
 		if (!iframe) {
-			if (teleporter.debug) {console.log('No matching parent iframe found for '+window.location.href+' !');}
+			/* if (teleporter.debug) {console.log('No matching parent iframe found for '+window.location.href+' !');} */
 			return;
 		}
 
-		if (iframe.src != topwin.location.href) {
+		if (iframe.src != ttopwin.location.href) {
 
 			/* maybe hide loading div */
 			teleporter_hide_loading();
@@ -78,15 +78,15 @@ function teleporter_transition_check() {
 
 			/* store top window body margin and padding */
 	    	body = topdoc.getElementsByTagName('body')[0];
-	    	if (!topwin.bodymargin) {topwin.bodymargin = body.style.margin;}
-	    	if (!topwin.bodypadding) {topwin.bodypadding = body.style.padding;}
+	    	if (!ttopwin.bodymargin) {ttopwin.bodymargin = body.style.margin;}
+	    	if (!ttopwin.bodypadding) {ttopwin.bodypadding = body.style.padding;}
 
 			/* remove parent margin and padding and set overflow hidden hide scrollbars */
 	    	body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
 
 			/* fade in or display parent iframe with current document */
 			if ((typeof parent.jQuery == 'function') && teleporter.fadetime) {
-				topwin.jQuery(iframe).fadeIn(teleporter.fadetime);
+				ttopwin.jQuery(iframe).fadeIn(teleporter.fadetime);
 			} else {iframe.style.display = 'block';}
 			href = iframe.src;
 	    }
@@ -96,46 +96,46 @@ function teleporter_transition_check() {
 	if (href) {
 		titletag = document.getElementsByTagName('title');
 		if (titletag.length) {title = titletag[0].innerHTML;} else {title = '';}
-		if (typeof topwin.statecount === 'undefined') {
-			topwin.statecount = 0; topwin.windowstateid = 0; stateid = 0;
-			if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);}
-			stateurls = []; stateurls[0] = href; topwin.stateurls = stateurls;
-			statetitles = []; statetitles[0] = title; topwin.statetitles = statetitles;
+		if (typeof ttopwin.statecount === 'undefined') {
+			ttopwin.statecount = 0; ttopwin.windowstateid = 0; stateid = 0;
+			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+			stateurls = []; stateurls[0] = href; ttopwin.stateurls = stateurls;
+			statetitles = []; statetitles[0] = title; ttopwin.statetitles = statetitles;
 		} else {
-			topwin.statecount++; stateid = topwin.statecount;
-			if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);}
-			if ((topwin != window.self) && (typeof window.windowstateid == 'undefined') ) {
+			ttopwin.statecount++; stateid = ttopwin.statecount;
+			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+			if ((ttopwin != window.self) && (typeof window.windowstateid == 'undefined') ) {
 				window.windowstateid = stateid;
-				if (teleporter.debug) {console.log(topwin.stateurls);}
-				topwin.stateurls[stateid] = href;
-				topwin.statetitles[stateid] = title;
+				/* if (teleporter.debug) {console.log(ttopwin.stateurls);} */
+				ttopwin.stateurls[stateid] = href;
+				ttopwin.statetitles[stateid] = title;
 			}
 		}
-		if (teleporter.debug) {
+		/* if (teleporter.debug) {
 			console.log('Setting Window PushState');
 			console.log('ID: '+stateid+' - Title: '+title+' - URL: '+href);
-			console.log(topwin.stateurls); console.log(topwin.statetitles);
-		}
+			console.log(ttopwin.stateurls); console.log(ttopwin.statetitles);
+		} */
 		var obj = {id: stateid, title: title, url: href};
-		topwin.pushing = true;
-		if (typeof topwin.History == 'function') {topwin.History.pushState(obj, title, href);}
-		else if (topwin.history) {topwin.history.pushState(obj, title, href);}
-		topwin.pushing = false;
+		ttopwin.pushing = true;
+		if (typeof ttopwin.History == 'function') {ttopwin.History.pushState(obj, title, href);}
+		else if (ttopwin.history) {ttopwin.history.pushState(obj, title, href);}
+		ttopwin.pushing = false;
 		teleporter_custom_event('teleporter-state-pushed', obj);
-		if (teleporter.debug) {
-			if (typeof topwin.History == 'function') {console.log(topwin.History.getState());}
-			else if (topwin.history) {console.log(topwin.history.state);}
-		}
+		/* if (teleporter.debug) {
+			if (typeof ttopwin.History == 'function') {console.log(ttopwin.History.getState());}
+			else if (ttopwin.history) {console.log(ttopwin.history.state);}
+		} */
 
-		topwin.currentstate = stateid;
+		ttopwin.currentstate = stateid;
 		if (iframe) {iframe.setAttribute('id', teleporter.iframe+'-'+stateid);}
 	}
 }
 
-/* Show Loading Divs */
+/* --- Show Loading Divs --- */
 function teleporter_show_loading() {
 	if (!teleporter.loading) {return;}
-	topdoc = window.top.document;
+	topdoc = ttopwin.document;
 	topdoc.getElementsByTagName('body')[0].classList.add('teleporter-loading');
 	topdoc.getElementById(teleporter.loading).className = 'reset';
 	setTimeout(function() {topdoc.getElementById(teleporter.loading).className = 'loading';}, 250);
@@ -153,10 +153,10 @@ function teleporter_show_loading() {
 	}, 250);
 }
 
-/* Hide Loading Divs */
+/* --- Hide Loading Divs --- */
 function teleporter_hide_loading() {
 	if (!teleporter.loading) {return;}
-	topdoc = window.top.document;
+	topdoc = ttopwin.document;
 	topdoc.getElementById(teleporter.loading).className = '';
 	topdoc.getElementsByTagName('body')[0].classList.remove('teleporter-loading');
 	iframes = topdoc.getElementsByClassName(teleporter.iframe);
@@ -169,14 +169,14 @@ function teleporter_hide_loading() {
 
 /* --- Add PopState Event Checker --- */
 function teleporter_add_popstate_checker() {
-	if (teleporter.debug) {console.log('Adding Window Popstate Event');}
+	/* if (teleporter.debug) {console.log('Adding Window Popstate Event');} */
 
 	/* for History.js only */
 	if (typeof window.History == 'function') {
 		/* ref: https://github.com/browserstate/history.js */
 		(function(window,undefined) {
 			History.Adapter.bind(window, 'statechange', function (event) {
-				if (teleporter.debug) {console.log('State Change Event');}
+				/* if (teleporter.debug) {console.log('State Change Event');} */
 				teleporter_custom_event('teleporter-popstate-event', {event: event});
 				teleporter_popstate_checker(event);
 			});
@@ -184,7 +184,7 @@ function teleporter_add_popstate_checker() {
 	} else {
 		/* add main popstate event listener */
 		window.addEventListener('popstate', function(event) {
-			if (teleporter.debug) {console.log('Window PopState Event');}
+			/* if (teleporter.debug) {console.log('Window PopState Event');} */
 			teleporter_custom_event('teleporter-popstate-event', {event: event});
 			teleporter_popstate_checker(event);
 		}, false );
@@ -194,76 +194,77 @@ function teleporter_add_popstate_checker() {
 /* --- Popstate Event Checker --- */
 function teleporter_popstate_checker(event) {
 
-	topwin = window.top;
-
 	/* ignore inital popstate that some browsers fire on page load */
 	/* ref: https://stackoverflow.com/a/17176274/5240159 */
-	topwin.initialpop = !topwin.poppedstate && (window.location.href == topwin.initialurl);
-	topwin.poppedstate = true; if (topwin.initialpop) {return;}
+	ttopwin.initialpop = !ttopwin.poppedstate && (window.location.href == ttopwin.initialurl);
+	ttopwin.poppedstate = true; if (ttopwin.initialpop) {return;}
 
 	/* ignore pushstate to create state ID */
-	if (topwin.pushing) {return;}
+	if (ttopwin.pushing) {return;}
 
-	/* if (window.document.referrer == (window.top.location.protocol+'//'+window.top.location.hostname)) {
-		if (teleporter.debug) {console.log('Referrer matches top window hostname.');}
+	/* if (teleporter.debug) {
+		if (window.document.referrer == (ttopwin.location.protocol+'//'+ttopwin.location.hostname)) {
+			console.log('Referrer matches top window hostname.');
+		}
 	} */
 
 	/* do not go back more than once from original URL */
-	if ((typeof topwin.backclicked != 'undefined') && topwin.backclicked) {
-		topwin.backclicked = false; return;
+	if ((typeof ttopwin.backclicked != 'undefined') && ttopwin.backclicked) {
+		ttopwin.backclicked = false; return;
 	}
 
 	/* get event history state */
 	stateid = null;
 	if (event.state) {console.log('Event State'); console.log(event);}
-	if  (typeof topwin.History != 'undefined') {
-		state = topwin.History.getState();
+	if  (typeof ttopwin.History != 'undefined') {
+		state = ttopwin.History.getState();
 		if (state.data.id) {stateid = state.data.id;}
 		else {
-			if (teleporter.debug) {console.log(state);}
-			for (i = 0; i < topwin.stateurls.length; i++) {
+			/* if (teleporter.debug) {console.log(state);} */
+			for (i = 0; i < ttopwin.stateurls.length; i++) {
 				if (stateurls[i] == state.url) {stateid = i;}
 			}
 		}
-	} else if (topwin.history) {
+	} else if (ttopwin.history) {
 		if (event.state) {state = event.state; stateid = state.id;}
-		else if (topwin.history.state) {state = topwin.history.state; stateid = state.id;}
+		else if (ttopwin.history.state) {state = ttopwin.history.state; stateid = state.id;}
 		else {return true;}
 	} else {return true;}
-	if (teleporter.debug) {console.log('Popstate Event'); console.log(event); console.log(state);}
+	/* if (teleporter.debug) {console.log('Popstate Event'); console.log(event); console.log(state);} */
 
 	/* check state ID and URL match */
 	/* note: this means back button was pressed beyond existing states */
-	if ((stateid === null) || (topwin.stateurls == 'undefined') || (state.url != topwin.stateurls[stateid])) {
+	if ((stateid === null) || (ttopwin.stateurls == 'undefined') || (state.url != ttopwin.stateurls[stateid])) {
 		/* found = false;
-		for (i in topwin.stateurls) {
-			if (topwin.stateurls[i] == state.url) {
-				stateid = i; title = topwin.statetitles[i]; found = true;
+		for (i in ttopwin.stateurls) {
+			if (ttopwin.stateurls[i] == state.url) {
+				stateid = i; title = ttopwin.statetitles[i]; found = true;
 				if (teleporter.debug) {console.log('State mismatch. Corrected to State ID '+stateid);}
 				var obj = {id: i, title: title, url: state.url};
-				if (typeof topwin.History == 'function') {topwin.History.replaceState(obj, title, state.url);}
-				else (topwin.history) {topwin.history.replaceState(obj, title, state.url);}
+				if (typeof ttopwin.History == 'function') {ttopwin.History.replaceState(obj, title, state.url);}
+				else (ttopwin.history) {ttopwin.history.replaceState(obj, title, state.url);}
 			}
 		}
 		if (!found) { */
-			if (teleporter.debug) {
+
+			/* if (teleporter.debug) {
 				console.log('State mismatch. No transition action.');
 				console.log('ID: '+stateid+' - URL: '+state.url);
-				console.log(topwin.stateurls);
-			}
-			if (state.url == topwin.initialurl) {
-				topwin.backclicked = true;
-				if (typeof topwin.History == 'function') {topwin.History.back();}
-				else if (topwin.history) {history.back();}
+				console.log(ttopwin.stateurls);
+			} */
+			if (state.url == ttopwin.initialurl) {
+				ttopwin.backclicked = true;
+				if (typeof ttopwin.History == 'function') {ttopwin.History.back();}
+				else if (ttopwin.history) {history.back();}
 			} else {
 				/* lost from history so just load it */
 				teleporter_transition_page({href: state.url});
 			}
 			return;
-		/* } */
+		/* }*/
 	}
 
-	if (teleporter.debug) {console.log('Switching to State '+stateid);}
+	/* if (teleporter.debug) {console.log('Switching to State '+stateid);} */
 	if (event.preventDefault) {event.preventDefault();}
 	if (event.stopImmediatePropagation) {event.stopImmediatePropagation();}
 	teleporter_switch_state(stateid);
@@ -272,41 +273,39 @@ function teleporter_popstate_checker(event) {
 /* --- Switch Page State --- */
 function teleporter_switch_state(stateid) {
 
-	topwin = window.top;
-
 	/* check conditions */
-	if (typeof topwin.windowstateid == 'undefined') {return;}
-	if (typeof topwin.currentstate != 'undefined') {currentstate = topwin.currentstate;}
-	else {currentstate = 0; topwin.currentstate = 0;}
+	if (typeof ttopwin.windowstateid == 'undefined') {return;}
+	if (typeof ttopwin.currentstate != 'undefined') {currentstate = ttopwin.currentstate;}
+	else {currentstate = 0; ttopwin.currentstate = 0;}
 	if (stateid == currentstate) {return;}
-	if (teleporter.debug) {console.log('Switching to State ID: '+stateid+' (Current State: '+currentstate+')');}
+	/* if (teleporter.debug) {console.log('Switching to State ID: '+stateid+' (Current State: '+currentstate+')');} */
 	teleporter_custom_event('teleporter-switch-state', {stateid: stateid});
 
 	/* get all iframes */
-	iframes = topwin.document.getElementsByClassName(teleporter.iframe);
-	if (teleporter.debug) {console.log(iframes);}
+	iframes = ttopwin.document.getElementsByClassName(teleporter.iframe);
+	/* if (teleporter.debug) {console.log(iframes);} */
 	for (i = 0; i < iframes.length; i++) {
 		if (iframes[i].id == teleporter.iframe+'-'+stateid) {iframe = iframes[i]; j = i;}
 	}
-	if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+j); console.log(iframe);}
+	/* if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+j); console.log(iframe);} */
 
-	if (topwin.windowstateid == stateid) {
+	if (ttopwin.windowstateid == stateid) {
 
 		/* restore top window view */
-		if (teleporter.debug) {console.log('Restoring First Page State');}
-		body = topwin.document.getElementsByTagName('body')[0];
-		body.style.margin = topwin.bodymargin;
-		body.style.padding = topwin.bodypadding;
+		/* if (teleporter.debug) {console.log('Restoring First Page State');} */
+		body = ttopwin.document.getElementsByTagName('body')[0];
+		body.style.margin = ttopwin.bodymargin;
+		body.style.padding = ttopwin.bodypadding;
 		body.style.overflow = 'scroll';
 		for (i = 0; i < iframes.length; i++) {
-			if (teleporter.debug) {console.log('Hiding Iframes');}
+			/* if (teleporter.debug) {console.log('Hiding Iframes');} */
 			if (iframes[i].style.display != 'none') {
 				if ((typeof jQuery == 'function') && teleporter.fadetime) {
 					jQuery(iframes[i]).fadeOut(teleporter.fadetime);
 				} else {iframes[i].style.display = 'none';}
 			}
 		}
-		topwin.currentstate = 0;
+		ttopwin.currentstate = 0;
 
 	} else {
 
@@ -314,11 +313,11 @@ function teleporter_switch_state(stateid) {
 		doc = iframe.contentDocument || iframe.contentWindow.document;
 		body = doc.getElementsByTagName('body')[0];
 		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
-		if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Window '+j);}
+		/* if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Window '+j);} */
 
 		/* hide other iframes */
 		for (i = 0; i < iframes.length; i++) {
-			if (teleporter.debug) {console.log('Hiding Iframes');}
+			/* if (teleporter.debug) {console.log('Hiding Iframes');} */
 			if ((i != j) && (iframes[i].style.display != 'none')) {
 				if ((typeof jQuery == 'function') && teleporter.fadetime) {
 					jQuery(iframes[i]).fadeOut(teleporter.fadetime);
@@ -333,8 +332,8 @@ function teleporter_switch_state(stateid) {
 	}
 
 	/* set top window state and title */
-	topwin.document.title = topwin.statetitles[stateid];
-	topwin.currentstate = stateid;
+	ttopwin.document.title = ttopwin.statetitles[stateid];
+	ttopwin.currentstate = stateid;
 	teleporter_custom_event('teleporter-transitioned', {stateid: stateid});
 }
 
@@ -350,19 +349,39 @@ function teleporter_add_iframe(src) {
 	iframe.setAttribute('scrolling', 'auto');
 	iframe.setAttribute('allowfullscreen', 'true');
 	iframe.setAttribute('style', 'display:none;');
-	window.top.document.getElementsByTagName('body')[0].appendChild(iframe);
+	ttopwin.document.getElementsByTagName('body')[0].appendChild(iframe);
 	return iframe;
 }
 
 /* --- Remove Window State ID on Unload --- */
 addEventListener('unload', function(event) {
-	window.top.windowstateid = 'undefined';
+	ttopwin.windowstateid = 'undefined';
 }, false);
 
-/* Add Onclick Loading to Page Links */
+/* --- Get Top Window (Accessible) --- */
+function teleporter_top_window() {
+	try {test = window.top.location; return window.top;} catch(e) {
+		return teleporter_get_window_parent(window.self);
+	}
+}
+
+/* --- Got Accessible Window Parent Recursively --- */
+function teleporter_get_window_parent(win) {
+	parentwindow = false;
+	try {test = win.parent.location; parentwindow = win.parent;} catch(e) {return false;}
+	if (parentwindow) {
+		if (parentwindow == win) {return win;}
+		maybe = teleporter_get_window_parent(parentwindow);
+		if (maybe) {return maybe;}
+		return parentwindow;
+	}
+	return win;
+}
+
+/* --- Add Onclick Loading to Page Links --- */
 if (typeof window.jQuery !== 'undefined') {
 
-	/* TODO: improve external/onpage link checking */
+	/* TODO: ignore all external links ? */
 
 	/* add onclicks to links with jQuery */
 	jQuery(document).ready(function() {
@@ -373,36 +392,29 @@ if (typeof window.jQuery !== 'undefined') {
 		if (parent.document) {document.getElementsByTagName('body')[0].style.overflow = 'scroll';}
 
 		/* loop all links to add onclick attribute */
-		baseurl = window.top.location.protocol+'//'+window.top.location.hostname
-		if (teleporter.debug) {console.log('Site Window Base URL: '+baseurl);}
 		teleporter_custom_event('teleporter-check-links', false);
-		tlinks = new Array(); j = 0;
 		jQuery('a').each(function() {
-			el = jQuery(this)[0];
-			if ( !el.onclick && !jQuery(this).attr('onclick')
-			  && !jQuery(this).attr('target') && (el.href.indexOf('#') < 0) ) {
+			element = jQuery(this)[0];
+			if ( !element.onclick && !jQuery(this).attr('onclick')
+			  && !jQuery(this).attr('target') && (element.href.indexOf('#') < 0)
+			  && (element.href.indexOf('javascript:') < 0) ) {
 				skip = false;
-				if ((el.href.substr(0,4).toLowerCase() == 'http')
-				  && (el.href.substr(0,baseurl.length).toLowerCase() != baseurl)) {
-					skip = true;
-				}
-				if (!skip && teleporter.ignore.length) {
+				if (teleporter.ignore.length) {
 					for (i in teleporter.ignore) {
 						if (jQuery(this).hasClass(teleporter.ignore[i])) {skip = true;}
 					}
 				}
 				if (!skip) {
-					ev = jQuery._data(el, 'events');
-					if (!ev || !ev.click) {
-						if (teleporter.debug) {console.log('Adding onclick attribute to link.');}
-						jQuery(this).attr('onclick', 'return teleporter_transition_page(this);');
-						tlinks[j] = el; j++;
-					}
 					/* TODO: also check for click events via findHandlerJS ? */
+					ev = jQuery._data(element, 'events');
+					if (!ev || !ev.click) {
+						/* if (teleporter.debug) {console.log('Adding onclick attribute to link.');} */
+						jQuery(this).attr('onclick', 'return teleporter_transition_page(this);');
+					}
 				}
 			}
 		});
-		teleporter_custom_event('teleporter-links-checked', tlinks);
+		teleporter_custom_event('teleporter-links-checked', false);
 		teleporter_transition_check();
 		teleporter_add_popstate_checker();
 	});
@@ -451,34 +463,26 @@ if (typeof window.jQuery !== 'undefined') {
 		if (parent.document) {document.getElementsByTagName('body')[0].style.overflow = 'scroll';}
 
 		/* loop all links to add onclick attribute */
-		baseurl = window.top.location.protocol+'//'+window.top.location.hostname
-		if (teleporter.debug) {console.log('Site Window Base URL: '+baseurl);}
 		teleporter_custom_event('teleporter-check-links', false);
-		tlinks = new Array(); j = 0;
 		alinks = document.getElementsByTagName('a');
 		for (var i = 0; i < alinks.length; i++) {
-			el = alinks[i];
-			if ( !el.onclick && !el.getAttribute('onclick')
-			  && !el.getAttribute('target') && (el.href.indexOf('#') < 0) ) {
+			if ( !alinks[i].onclick && !alinks[i].getAttribute('onclick')
+			  && !alinks[i].getAttribute('target') && (alinks[i].href.indexOf('#') < 0)
+			  && (alinks[i].href.indexOf('javascript:') < 0) ) {
 				skip = false;
-				if ((el.href.substr(0,4).toLowerCase() == 'http')
-				  && (el.href.substr(0,baseurl.length).toLowerCase() != baseurl)) {
-					skip = true;
-				}
-				if (!skip && teleporter.ignore.length) {
+				if (teleporter.ignore.length) {
 					for (i in teleporter.ignore) {
-						if (el.classList.contains(teleporter.ignore[i])) {skip = true;}
+						if (alinks[i].classList.contains(teleporter.ignore[i])) {skip = true;}
 					}
 				}
 				if (!skip) {
 					/* TODO: check for click events via findHandlerJS ? */
-					if (teleporter.debug) {console.log('Adding onclick attribute to link '+el);}
-					el.setAttribute('onclick', 'return teleporter_transition_page(this);');
-					tlinks[j] = el; j++;
+					/* if (teleporter.debug) {console.log('Adding onclick attribute to link '+alinks[i]);} */
+					alinks[i].setAttribute('onclick', 'return teleporter_transition_page(this);');
 				}
 			}
 		}
-		teleporter_custom_event('teleporter-links-checked', tlinks);
+		teleporter_custom_event('teleporter-links-checked', false);
 
 		teleporter_transition_check();
 		teleporter_add_popstate_checker();
@@ -487,9 +491,9 @@ if (typeof window.jQuery !== 'undefined') {
 
 /* --- Dispatch Custom Event --- */
 function teleporter_custom_event(name, detail) {
-	params = {bubbles: false, cancelable: false, detail: detail}
+	params = {bubbles: false, cancelable: false, detail: detail};
 	var event = new CustomEvent(name, params); document.dispatchEvent(event);
-	if (teleporter.debug) {console.log('Teleporter Custom Event: '+name); console.log(detail);}
+	/* if (teleporter.debug) {console.log('Teleporter Custom Event: '+name); console.log(detail);} */
 }
 
 /* --- CustomEvent support polyfill --- */
