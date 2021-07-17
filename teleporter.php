@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: http://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 0.9.6
+Version: 0.9.7
 Author URI: http://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -52,8 +52,14 @@ function teleporter_enqueue_scripts() {
 	wp_enqueue_script( 'historyjs', $history_js_url, array(), $version, false );
 
 	// --- enqueue teleporter script ---
-	$suffix = '.dev';
-	$suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
+	// 0.9.7: fix to debug mode via querystring
+	if ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
+		$suffix = '';
+	} elseif ( isset( $_REQUEST['teleporter-debug'] ) && ( '1' == $_REQUEST['teleporter-debug'] ) ) {
+		$suffix = '';
+	} else {
+		$suffix = '.min';
+	}
 	$teleporter_url = plugins_url( 'js/teleporter' . $suffix . '.js', __FILE__ );
 	$version = filemtime( dirname( __FILE__ ) . '/js/teleporter' . $suffix . '.js' );
 	wp_enqueue_script( 'teleporter', $teleporter_url, array( 'jquery' ), $version, false );
@@ -72,7 +78,7 @@ function teleporter_localize_settings() {
 	if ( isset( $_REQUEST['teleporter-debug'] ) && ( '1' == $_REQUEST['teleporter-debug'] ) ) {
 		$debug = 'true';
 	}
-	$debug = 'true'; // DEV TEMP
+	// $debug = 'true';
 
 	// --- set iframe fadein time ---
 	$fade_time = 2000;
@@ -179,8 +185,9 @@ function teleporter_history_support() {
 		echo "document.getElementsByTagName('head')[0].appendChild(historyjs);";
 	} else {
 		echo "if (window.history == 'undefined') {"; */
+			// 0.9.7: added esc_url to history js URL
 			echo "historyjs = document.createElement('script');";
-			echo "historyjs.setAttribute('src', '" . $history_js_url . "');";
+			echo "historyjs.setAttribute('src', '" . esc_url( $history_js_url ) . "');";
 			echo "document.getElementsByTagName('head')[0].appendChild(historyjs);";
 		/* echo "}";
 	} */
@@ -208,24 +215,25 @@ function teleporter_dynamic_styles() {
 	}
 
 	// --- iframe and loading styles ---
+	// 0.9.7: added esc_attr to iframe class and loading IDs
 	if ( $iframe && is_string( $iframe ) ) {
-		echo "<style>." . $iframe . " {";
-			echo "background: #FFF; overflow: hidden; z-index: 999999;";
+		echo "<style>." . esc_attr( $iframe ) . " {";
+			echo "background: #FFF; overflow: hidden; z-index: 999999; ";
 			echo "position: fixed; border: none; margin: 0; padding: 0; top: 0; left: 0; bottom: 0; right: 0;";
 		echo "}" . PHP_EOL;
 
 		if ( $loading && is_string( $loading ) ) {
-			echo "#" . $loading . " {position: fixed; top: 0; left: 0; right: 0; margin: 0; padding: 0; ";
+			echo "#" . esc_attr( $loading ) . " {position: fixed; top: 0; left: 0; right: 0; margin: 0; padding: 0; ";
 				echo "border: none; height: 7px; width: 0; max-width: 5000px; overflow: hidden; ";
 				echo "opacity: 0; transition: none; background: #00CC00;";
 			echo "}" . PHP_EOL;
-			echo "#" . $loading . ".loading {transition: width 10s ease-in-out; width: 100%; opacity: 1;}" . PHP_EOL;
-			echo "#" . $loading . ".reset {transition: none; width: 0; opacity: 0;}" . PHP_EOL;
+			echo "#" . esc_attr( $loading ) . ".loading {transition: width 10s ease-in-out; width: 100%; opacity: 1;}" . PHP_EOL;
+			echo "#" . esc_attr( $loading ) . ".reset {transition: none; width: 0; opacity: 0;}" . PHP_EOL;
 
 			// --- maybe shift top position for admin bar ---
-			echo "body.admin-bar #" . $loading . " {top: 32px;}" . PHP_EOL;
+			echo "body.admin-bar #" . esc_attr( $loading ) . " {top: 32px;}" . PHP_EOL;
 			echo "@media screen and (max-width: 782px) {";
-				echo "body.admin-bar #" . $loading . "{top: 46px;}";
+				echo "body.admin-bar #" . esc_attr( $loading ) . "{top: 46px;}";
 			echo "}" . PHP_EOL;
 		}
 		echo "</style>";
@@ -283,8 +291,8 @@ function teleporter_script_minifier() {
 	$fh = fopen( $minscript, 'w' );
 	fwrite( $fh, $mincontents );
 	fclose( $fh );
-	echo '<br>----- Minified Script -----<br>';
-	echo $mincontents;
+	// echo '<br>----- Minified Script -----<br>';
+	// echo $mincontents;
 
 	// --- keep debugs for non-minified version ---
 	$contents = str_replace( '/* if (teleporter.debug) {', 'if (teleporter.debug) {', $contents );
@@ -314,8 +322,8 @@ function teleporter_script_minifier() {
 	$fh = fopen( $script, 'w' );
 	fwrite( $fh, $contents );
 	fclose( $fh );
-	echo '<br>----- Comment Free Script -----<br>';
-	echo $contents;
+	// echo '<br>----- Comment Free Script -----<br>';
+	// echo $contents;
 
 	exit;
 }
@@ -341,34 +349,26 @@ function teleporter_test_shortcode() {
 	}
 
 	ob_start();
+	
+	// 0.9.7: added esc_html to outputs
 ?>
 
-<title>Transition <?php echo $title; ?></title>
+<title>Transition <?php echo esc_html( $title ); ?></title>
 
-<?php echo $text; ?><br><br>
+<?php echo esc_html( $text ); ?><br><br>
 
 <div id='links'>
 
-	<a href='?next=<?php echo $nextvalue; ?>'>Link to Next Page.</a><br><br>
-
+	<a href='?next=<?php echo esc_attr( $nextvalue ); ?>'>Link to Next Page.</a><br><br>
 	<a href=''>Link to Page 1.</a><br><br>
-
 	<a href='?next=2'>Link to Page 2.</a><br><br>
-
 	<a href='?next=3'>Link to Page 3.</a><br><br>
-
 	<a href='?next=3'>Link to Page 4.</a><br><br>
-
 	<a href='' onclick='something();'>with OnClick Attribute.</a><br><br>
-
 	<a href='' onclick=''>with empty OnClick Attribute.</a><br><br>
-
 	<a href='' target='someframe'>with Target Attribute.</a><br><br>
-
 	<a href='' target=''>with empty Target Attribute.</a><br><br>
-
 	<a href='' class='no-transition'>with 'no-transition' Class.</a><br><br>
-
 	<a href='#anchor'>with Hash in Href Attribute.</a><br><br>
 
 </div>
