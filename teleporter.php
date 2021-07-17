@@ -74,7 +74,7 @@ function teleporter_enqueue_scripts() {
 	$ignore_classes = array( 'no-teleporter', 'no-transition' );
 	$ignore_classes = apply_filters( 'teleporter_ignore_classes', $ignore_classes );
 	$ignore = '[';
-	if ( is_array( $ignore_classes ) && ( count( $ignore_classes > 0 ) ) ) {
+	if ( is_array( $ignore_classes ) && ( count( $ignore_classes ) > 0 ) ) {
 		foreach ( $ignore_classes as $i => $ignore_class ) {
 			if ( $i > 0 ) {
 				$ignore .= ',';
