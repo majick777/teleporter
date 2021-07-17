@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: http://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 0.9.5
+Version: 0.9.6
 Author URI: http://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -16,12 +16,16 @@ if ( !function_exists( 'add_action' ) ) {
 
 // === Teleporter ===
 // - Enqueue Teleporter Scripts
+// - Localize Script Settings
 // - Add History API Support
 // - Add Teleporter Styles
 // - Minify Development Script
 // - Link Test Shortcode
 
 
+// ----------------
+// Define Constants
+// ----------------
 define( 'TELEPORTER_FILE', __FILE__ );
 define( 'TELEPORTER_DIR', dirname( __FILE__ ) );
 
@@ -48,12 +52,20 @@ function teleporter_enqueue_scripts() {
 	wp_enqueue_script( 'historyjs', $history_js_url, array(), $version, false );
 
 	// --- enqueue teleporter script ---
-	// TODO: maybe use minified teleporter script version ?
-	// if ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {$suffix = '';} else {$suffix = '.min';}
-	$suffix = '';
+	$suffix = '.dev';
+	$suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
 	$teleporter_url = plugins_url( 'js/teleporter' . $suffix . '.js', __FILE__ );
 	$version = filemtime( dirname( __FILE__ ) . '/js/teleporter' . $suffix . '.js' );
 	wp_enqueue_script( 'teleporter', $teleporter_url, array( 'jquery' ), $version, false );
+
+	// --- localize script settings ---
+	teleporter_localize_settings();
+}
+
+// ------------------------
+// Localize Script Settings
+// ------------------------
+function teleporter_localize_settings() {
 
 	// --- set debug mode ---
 	$debug = 'false';
@@ -74,7 +86,7 @@ function teleporter_enqueue_scripts() {
 	$ignore_classes = array( 'no-teleporter', 'no-transition' );
 	$ignore_classes = apply_filters( 'teleporter_ignore_classes', $ignore_classes );
 	$ignore = '[';
-	if ( is_array( $ignore_classes ) && ( count( $ignore_classes ) > 0 ) ) {
+	if ( is_array( $ignore_classes ) && ( count( $ignore_classes > 0 ) ) ) {
 		foreach ( $ignore_classes as $i => $ignore_class ) {
 			if ( $i > 0 ) {
 				$ignore .= ',';
@@ -110,6 +122,7 @@ function teleporter_enqueue_scripts() {
 	$js .= "}" . PHP_EOL;
 
 	// --- ignore WordPress admin links ---
+	// 0.9.6: fix for admin bar links
 	if ( count( $ignore_classes ) > 0 ) {
 		$js .= "document.addEventListener('teleporter-check-links', function(event,params) {";
 		$js .= "ignoreclass = '" . esc_js( $ignore_classes[0] ) . "'; ";
@@ -149,6 +162,7 @@ function teleporter_enqueue_scripts() {
 // -----------------------
 // Add History API Support
 // -----------------------
+// note: for consistency, history support always is loaded and given preferred use
 // add_action( 'wp_head', 'teleporter_history_support' );
 function teleporter_history_support() {
 	// --- maybe conditionally load history.js ---
@@ -221,6 +235,7 @@ function teleporter_dynamic_styles() {
 // ------------------------------
 // Minify from Development Script
 // ------------------------------
+// 0.9.6: working code to minify scripts
 add_action( 'init', 'teleporter_script_minifier' );
 function teleporter_script_minifier() {
 
@@ -233,10 +248,47 @@ function teleporter_script_minifier() {
 	}
 
 	// --- set script paths ---
-	$devscript = TELEPORTER_DIR . '/scripts/teleporter.dev.js';
-	$script = TELEPORTER_DIR . '/scripts/teleporter.js';
-	$minscript = TELEPORTER_DIR . '/scripts/teleporter.min.js';
+	$devscript = TELEPORTER_DIR . '/js/teleporter.dev.js';
+	$script = TELEPORTER_DIR . '/js/teleporter.js';
+	$minscript = TELEPORTER_DIR . '/js/teleporter.min.js';
 	$contents = implode( '', file( $devscript ) );
+
+	// --- strip comments from min script ---
+	$mincontents = $contents;
+	while ( strstr( $mincontents, '/*' ) ) {
+		$pos = strpos( $mincontents, '/*' );
+		$before = substr( $mincontents, 0, $pos );
+		$remainder = substr( $mincontents, $pos, strlen( $mincontents ) );
+		$posb = strpos( $remainder, '*/' ) + 2;
+		$after = substr( $remainder, $posb, strlen( $remainder ) );
+		$mincontents = $before . $after;
+	}
+
+	// --- strip empty lines ---
+	$newlines = array();
+	$lines = explode( "\n", $mincontents );
+	foreach ( $lines as $line ) {
+		if ( '' != trim( $line ) ) {
+			$newlines[] = $line;
+		}
+	}
+	$mincontents = implode( "\n", $newlines );
+
+	// --- remove tabs (and line breaks?) ---
+	$mincontents = str_replace( "\t", '', $mincontents );
+	$mincontents = str_replace( "\r", ' ', $mincontents );
+	$mincontents = str_replace( "\n", ' ', $mincontents );
+	
+	// --- write minified script ---
+	$fh = fopen( $minscript, 'w' );
+	fwrite( $fh, $mincontents );
+	fclose( $fh );
+	echo '<br>----- Minified Script -----<br>';
+	echo $mincontents;
+
+	// --- keep debugs for non-minified version ---
+	$contents = str_replace( '/* if (teleporter.debug) {', 'if (teleporter.debug) {', $contents );
+	$contents = str_replace( '} */', '}', $contents );
 
 	// --- strip comments from dev script ---
 	while ( strstr( $contents, '/*' ) ) {
@@ -244,7 +296,8 @@ function teleporter_script_minifier() {
 		$before = substr( $contents, 0, $pos );
 		$remainder = substr( $contents, $pos, strlen( $contents ) );
 		$posb = strpos( $remainder, '*/' ) + 2;
-		$contents = $before . substr( $remainder, $posb, strlen( $remainder ) );
+		$after = substr( $remainder, $posb, strlen( $remainder ) );
+		$contents = $before . $after;
 	}
 
 	// --- strip empty lines ---
@@ -261,27 +314,10 @@ function teleporter_script_minifier() {
 	$fh = fopen( $script, 'w' );
 	fwrite( $fh, $contents );
 	fclose( $fh );
+	echo '<br>----- Comment Free Script -----<br>';
+	echo $contents;
 
-	// --- strip debug functions ---
-	while ( strstr( $contents, 'if (teleporter.debug) {' ) ) {
-		$pos = strpos( $contents, 'if (teleporter.debug) {' );
-		$before = substr( $contents, 0, $pos );
-		$remainder = substr( $contents, $pos, strlen( $contents ) );
-		$posb = strpos( $remainder, '}' + 1 );
-		$remainder = substr( $remainder, $posb, strlen( $remainder ) );
-		$contents = $before . $remainder;
-	}
-
-	// --- remove tabs (and line breaks?) ---
-	$contents = str_replace( "\t", '', $contents );
-	// $contents = str_replace( "\r", ' ', $contents );
-	// $contents = str_replace( "\n", ' ', $contents );
-	
-	// --- write minified script ---
-	$fh = fopen( $minscript, 'w' );
-	fwrite( $fh, $contents );
-	fclose( $fh );
-
+	exit;
 }
 
 // -------------------
@@ -290,14 +326,14 @@ function teleporter_script_minifier() {
 add_shortcode( 'teleporter-test', 'teleporter_test_shortcode' );
 function teleporter_test_shortcode() {
 
-	if (isset($_GET['next'])) {
-		if ($_GET['next'] == '2') {
+	if ( isset( $_GET['next'] ) ) {
+		if ( '2' == $_GET['next'] ) {
 			$title = '1'; $text = "This is a PAGE 2!"; $nextvalue = '3';
-		} elseif ($_GET['next'] == '3') {
+		} elseif ( '3' == $_GET['next'] ) {
 			$title = '2'; $text = "This is a PAGE 3!"; $nextvalue = '4';
-		} elseif ($_GET['next'] == '4') {
+		} elseif ( '4' == $_GET['next'] ) {
 			$title = '3'; $text = "This is a PAGE 4!"; $nextvalue = '';
-		} elseif ($_GET['next'] == '') {
+		} elseif ( '' == $_GET['next'] ) {
 			$title = '1'; $text = "Back to the First Page."; $nextvalue = '2';
 		}
 	} else {
@@ -313,25 +349,25 @@ function teleporter_test_shortcode() {
 
 <div id='links'>
 
-	<a href='transition1.php?next=<?php echo $nextvalue; ?>'>Link to Next Page.</a><br><br>
+	<a href='?next=<?php echo $nextvalue; ?>'>Link to Next Page.</a><br><br>
 
-	<a href='transition1.php'>Link to Page 1.</a><br><br>
+	<a href=''>Link to Page 1.</a><br><br>
 
-	<a href='transition1.php?next=2'>Link to Page 2.</a><br><br>
+	<a href='?next=2'>Link to Page 2.</a><br><br>
 
-	<a href='transition1.php?next=3'>Link to Page 3.</a><br><br>
+	<a href='?next=3'>Link to Page 3.</a><br><br>
 
-	<a href='transition1.php?next=3'>Link to Page 4.</a><br><br>
+	<a href='?next=3'>Link to Page 4.</a><br><br>
 
-	<a href='transition1.php' onclick='something();'>with OnClick Attribute.</a><br><br>
+	<a href='' onclick='something();'>with OnClick Attribute.</a><br><br>
 
-	<a href='transition1.php' onclick=''>with empty OnClick Attribute.</a><br><br>
+	<a href='' onclick=''>with empty OnClick Attribute.</a><br><br>
 
-	<a href='transition1.php' target='someframe'>with Target Attribute.</a><br><br>
+	<a href='' target='someframe'>with Target Attribute.</a><br><br>
 
-	<a href='transition1.php' target=''>with empty Target Attribute.</a><br><br>
+	<a href='' target=''>with empty Target Attribute.</a><br><br>
 
-	<a href='transition1.php' class='no-transition'>with 'no-transition' Class.</a><br><br>
+	<a href='' class='no-transition'>with 'no-transition' Class.</a><br><br>
 
 	<a href='#anchor'>with Hash in Href Attribute.</a><br><br>
 
