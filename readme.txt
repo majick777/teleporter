@@ -4,7 +4,7 @@ Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
 Tested up to: 5.7.2
-Stable tag: trunk
+Stable tag: 0.9.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,23 +36,39 @@ Any standard `<a>` links on the page that:
 2. Do not have an onclick attribute already set.
 3. Do not have a class of `no-transition` or `no-teleporter`.
 
-As such, it is recommended you add a `target=_blank` or `target=_self` to any external links.
+As such, it is recommended you add a `target=_blank` or `target=_self` to any external links. 
+
+In future, link elements with an `onclick` event assigned will also be detected and ignored.
 
 = How does it work? =
 
 Teleporter loads new content in iframes within the existing window, then uses the Browser History API to keep track of the content that is loaded. It then monitors the `onpopstate` event so that browser forward and back buttons continue to load the desired content, with the added ability to fade between them.
 
-= Will it break scripts? =
+= Will it break other scripts? =
 
 No. Unlike similar plugins or libraries that use AJAX to retrieve new content and swap it on the current page, Teleporter uses iframes. This may seem a little counter-intuitive since iframes have been around forever and AJAX would seem to be the modern tool for the job. However, loading page content in an iframe means that any scripts loaded within that iframe are correctly loaded by the browser without fail. Using AJAX, there is a risk that the scripts in the current page and the new page are different, which could cause breakage as the new page's scripts are not initialized along with the content, and AJAX page transitioning does not (and cannot) address this issue.
+
+= How do I conflict test this? =
+
+If the page transitions are not working at all, it is likely you have another plugin causing a javascript error. This would prevent Teleporter from loading. Check you javascript console by right-clicking and selecting "Inspect" or "Inspect Element" then choose the "Console" tab from within the developer box. Javascript errors will be shown in red. You can try deactivating the plugin causing the error to see if this resolves the issue and if so report it to the plugin author. If the error is from Teleporter itself, please report it in the [Plugin Support forum](https://wordpress.org/support/plugins/teleporter/)
+
+= How do I debug the script? =
+
+You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any URL on your site. This will load the unminified version of the script and output extra messages to the browser javascript debug console (see previous question.)
 
 
 == Screenshots ==
 
+
 == Changelog ==
 
-= 0.9.6 =
+= 0.9.7 = 
 * Initial Release Version
+* Fixed: added missing escape wrappers to plugin output
+* Fixed: use unminified script for debug mode via querystring
+
+= 0.9.6 =
+* Initial Submission Version
 * Fixed: ignore WordPress Admin Bar links
 * Improved: added script minification
 
