@@ -1,4 +1,4 @@
-var teleporter = {debug: false, fadetime: 2000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading'};
+var teleporter = {debug: false, fadetime: 2000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
 var ttopwin; ttopwin = teleporter_top_window();
 if (typeof ttopwin.poppedstate == 'undefined') {
 	if  (typeof ttopwin.History == 'function') {ttopwin.poppedstate = ttopwin.History.getState();}
@@ -203,10 +203,13 @@ function teleporter_switch_state(stateid) {
 	teleporter_custom_event('teleporter-switch-state', {stateid: stateid});
 	iframes = ttopwin.document.getElementsByClassName(teleporter.iframe);
 	if (teleporter.debug) {console.log(iframes);}
+	iframe = false;
 	for (i = 0; i < iframes.length; i++) {
-		if (iframes[i].id == teleporter.iframe+'-'+stateid) {iframe = iframes[i]; j = i;}
+		if (iframes[i].id == teleporter.iframe+'-'+stateid) {
+			iframe = iframes[i]; j = i;
+			if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+j); console.log(iframe);}
+		}
 	}
-	if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+j); console.log(iframe);}
 	if (ttopwin.windowstateid == stateid) {
 		if (teleporter.debug) {console.log('Restoring First Page State');}
 		body = ttopwin.document.getElementsByTagName('body')[0];
@@ -214,7 +217,7 @@ function teleporter_switch_state(stateid) {
 		body.style.padding = ttopwin.bodypadding;
 		body.style.overflow = 'scroll';
 		for (i = 0; i < iframes.length; i++) {
-			if (teleporter.debug) {console.log('Hiding Iframes');}
+			if (teleporter.debug) {console.log('Hiding All Iframes');}
 			if (iframes[i].style.display != 'none') {
 				if ((typeof jQuery == 'function') && teleporter.fadetime) {
 					jQuery(iframes[i]).fadeOut(teleporter.fadetime);
@@ -222,11 +225,10 @@ function teleporter_switch_state(stateid) {
 			}
 		}
 		ttopwin.currentstate = 0;
-	} else {
-		doc = iframe.contentDocument || iframe.contentWindow.document;
-		body = doc.getElementsByTagName('body')[0];
+	} else if (iframe) {
+		body = ttopwin.document.getElementsByTagName('body')[0];
 		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
-		if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Window '+j);}
+		if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Top Window');}
 		for (i = 0; i < iframes.length; i++) {
 			if (teleporter.debug) {console.log('Hiding Iframes');}
 			if ((i != j) && (iframes[i].style.display != 'none')) {
@@ -257,6 +259,21 @@ function teleporter_add_iframe(src) {
 	ttopwin.document.getElementsByTagName('body')[0].appendChild(iframe);
 	return iframe;
 }
+function teleporter_is_external(el) {
+	u = el.href; a = '#'; b = '?';
+	if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {return false;}
+	if ((teleporter.siteurl != '') && (u.indexOf(teleporter.siteurl) === 0)) {return false;}
+	if (el.host == ttopwin.location.host) {
+		a = ttopwin.location.protocol+'//'+ttopwin.location.host;
+		b = '//'+ttopwin.location.host;
+		if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {
+			if (teleporter.debug) {console.log('Found internal URL: '+el.href);}
+			return false;
+		}		
+	}
+	if (teleporter.debug) {console.log('Found external URL: '+el.href);}
+	return true;
+}
 addEventListener('unload', function(event) {
 	ttopwin.windowstateid = 'undefined';
 }, false);
@@ -283,16 +300,16 @@ if (typeof window.jQuery !== 'undefined') {
 		teleporter_custom_event('teleporter-check-links', false);
 		jQuery('a').each(function() {
 			element = jQuery(this)[0];
-			if ( !element.onclick && !jQuery(this).attr('onclick')
-			  && !jQuery(this).attr('target') && (element.href.indexOf('#') < 0)
-			  && (element.href.indexOf('javascript:') < 0) ) {
+			if ( !element.onclick && !jQuery(this).attr('onclick') && (element.href != '')
+			  && !jQuery(this).attr('target')  && (element.href.indexOf('javascript:') !== 0) ) {
 				skip = false;
 				if (teleporter.ignore.length) {
 					for (i in teleporter.ignore) {
 						if (jQuery(this).hasClass(teleporter.ignore[i])) {skip = true;}
 					}
 				}
-				if (!skip) {
+				external = teleporter_is_external(element);
+				if (!skip && !external) {
 					ev = jQuery._data(element, 'events');
 					if (!ev || !ev.click) {
 						if (teleporter.debug) {console.log('Adding onclick attribute to link.');}
@@ -342,16 +359,16 @@ if (typeof window.jQuery !== 'undefined') {
 		teleporter_custom_event('teleporter-check-links', false);
 		alinks = document.getElementsByTagName('a');
 		for (var i = 0; i < alinks.length; i++) {
-			if ( !alinks[i].onclick && !alinks[i].getAttribute('onclick')
-			  && !alinks[i].getAttribute('target') && (alinks[i].href.indexOf('#') < 0)
-			  && (alinks[i].href.indexOf('javascript:') < 0) ) {
+			if ( !alinks[i].onclick && !alinks[i].getAttribute('onclick') && (alinks[i].href != '')
+			  && !alinks[i].getAttribute('target') && (alinks[i].href.indexOf('javascript:') !== 0) ) {
 				skip = false;
 				if (teleporter.ignore.length) {
 					for (i in teleporter.ignore) {
 						if (alinks[i].classList.contains(teleporter.ignore[i])) {skip = true;}
 					}
 				}
-				if (!skip) {
+				external = teleporter_is_external(alinks[i]);
+				if (!skip && !external) {
 					if (teleporter.debug) {console.log('Adding onclick attribute to link '+alinks[i]);}
 					alinks[i].setAttribute('onclick', 'return teleporter_transition_page(this);');
 				}
