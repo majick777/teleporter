@@ -3,7 +3,7 @@
 /* ================= */
 
 /* --- Set Default Settings --- */
-var teleporter = {debug: false, fadetime: 2000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading'};
+var teleporter = {debug: false, fadetime: 2000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
 
 /* --- Set Initial Variables --- */
 var ttopwin; ttopwin = teleporter_top_window();
@@ -284,10 +284,13 @@ function teleporter_switch_state(stateid) {
 	/* get all iframes */
 	iframes = ttopwin.document.getElementsByClassName(teleporter.iframe);
 	/* if (teleporter.debug) {console.log(iframes);} */
+	iframe = false;
 	for (i = 0; i < iframes.length; i++) {
-		if (iframes[i].id == teleporter.iframe+'-'+stateid) {iframe = iframes[i]; j = i;}
+		if (iframes[i].id == teleporter.iframe+'-'+stateid) {
+			iframe = iframes[i]; j = i;
+			/* if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+j); console.log(iframe);} */
+		}
 	}
-	/* if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+j); console.log(iframe);} */
 
 	if (ttopwin.windowstateid == stateid) {
 
@@ -298,7 +301,7 @@ function teleporter_switch_state(stateid) {
 		body.style.padding = ttopwin.bodypadding;
 		body.style.overflow = 'scroll';
 		for (i = 0; i < iframes.length; i++) {
-			/* if (teleporter.debug) {console.log('Hiding Iframes');} */
+			/* if (teleporter.debug) {console.log('Hiding All Iframes');} */
 			if (iframes[i].style.display != 'none') {
 				if ((typeof jQuery == 'function') && teleporter.fadetime) {
 					jQuery(iframes[i]).fadeOut(teleporter.fadetime);
@@ -307,13 +310,17 @@ function teleporter_switch_state(stateid) {
 		}
 		ttopwin.currentstate = 0;
 
-	} else {
+	} else if (iframe) {
 
-		/* set window scroll styles */
-		doc = iframe.contentDocument || iframe.contentWindow.document;
+		/* set iframe scroll styles */
+		/* doc = iframe.contentDocument || iframe.contentWindow.document;
 		body = doc.getElementsByTagName('body')[0];
+		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'scroll'; */
+		
+		/* set top window to passthrough view */
+		body = ttopwin.document.getElementsByTagName('body')[0];
 		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
-		/* if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Window '+j);} */
+		/* if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Top Window');} */
 
 		/* hide other iframes */
 		for (i = 0; i < iframes.length; i++) {
@@ -353,6 +360,29 @@ function teleporter_add_iframe(src) {
 	return iframe;
 }
 
+/* --- Check if URL location is external --- */
+function teleporter_is_external(el) {
+	/* treat hash or query as internal */
+	u = el.href; a = '#'; b = '?';
+	if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {return false;}
+
+	/* check against site URL */
+	if ((teleporter.siteurl != '') && (u.indexOf(teleporter.siteurl) === 0)) {return false;}
+
+	/* check against host/protocol */
+	if (el.host == ttopwin.location.host) {
+		a = ttopwin.location.protocol+'//'+ttopwin.location.host;
+		b = '//'+ttopwin.location.host;
+		if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {
+			/* if (teleporter.debug) {console.log('Found internal URL: '+u);} */
+			return false;
+		}		
+	}
+
+	/* if (teleporter.debug) {console.log('Found external URL: '+u);} */
+	return true;
+}
+
 /* --- Remove Window State ID on Unload --- */
 addEventListener('unload', function(event) {
 	ttopwin.windowstateid = 'undefined';
@@ -381,8 +411,6 @@ function teleporter_get_window_parent(win) {
 /* --- Add Onclick Loading to Page Links --- */
 if (typeof window.jQuery !== 'undefined') {
 
-	/* TODO: ignore all external links ? */
-
 	/* add onclicks to links with jQuery */
 	jQuery(document).ready(function() {
 
@@ -395,16 +423,18 @@ if (typeof window.jQuery !== 'undefined') {
 		teleporter_custom_event('teleporter-check-links', false);
 		jQuery('a').each(function() {
 			element = jQuery(this)[0];
-			if ( !element.onclick && !jQuery(this).attr('onclick')
-			  && !jQuery(this).attr('target') && (element.href.indexOf('#') < 0)
-			  && (element.href.indexOf('javascript:') < 0) ) {
+			if ( !element.onclick && !jQuery(this).attr('onclick') && (element.href != '')
+			  && !jQuery(this).attr('target')  && (element.href.indexOf('javascript:') !== 0) ) {
 				skip = false;
+				/* check against ignore classes */
 				if (teleporter.ignore.length) {
 					for (i in teleporter.ignore) {
 						if (jQuery(this).hasClass(teleporter.ignore[i])) {skip = true;}
 					}
 				}
-				if (!skip) {
+				/* ignore all external links */
+				external = teleporter_is_external(element);
+				if (!skip && !external) {
 					/* TODO: also check for click events via findHandlerJS ? */
 					ev = jQuery._data(element, 'events');
 					if (!ev || !ev.click) {
@@ -466,16 +496,18 @@ if (typeof window.jQuery !== 'undefined') {
 		teleporter_custom_event('teleporter-check-links', false);
 		alinks = document.getElementsByTagName('a');
 		for (var i = 0; i < alinks.length; i++) {
-			if ( !alinks[i].onclick && !alinks[i].getAttribute('onclick')
-			  && !alinks[i].getAttribute('target') && (alinks[i].href.indexOf('#') < 0)
-			  && (alinks[i].href.indexOf('javascript:') < 0) ) {
+			if ( !alinks[i].onclick && !alinks[i].getAttribute('onclick') && (alinks[i].href != '')
+			  && !alinks[i].getAttribute('target') && (alinks[i].href.indexOf('javascript:') !== 0) ) {
 				skip = false;
+				/* check against ignore classes */
 				if (teleporter.ignore.length) {
 					for (i in teleporter.ignore) {
 						if (alinks[i].classList.contains(teleporter.ignore[i])) {skip = true;}
 					}
 				}
-				if (!skip) {
+				/* ignore all external links */
+				external = teleporter_is_external(alinks[i]);
+				if (!skip && !external) {
 					/* TODO: check for click events via findHandlerJS ? */
 					/* if (teleporter.debug) {console.log('Adding onclick attribute to link '+alinks[i]);} */
 					alinks[i].setAttribute('onclick', 'return teleporter_transition_page(this);');

@@ -30,15 +30,18 @@ Once you have activated the plugin, any internal links on your site will automat
 
 = Which links are affected? =
 
-Any standard `<a>` links on the page that:
+Any standard `<a>` link on the page that:
 
-1. Do not have a target attribute set.
-2. Do not have an onclick attribute already set.
-3. Do not have a class of `no-transition` or `no-teleporter`.
+1. Does not have a target attribute set.
+2. Dose not have an onclick attribute already set.
+3. Dose not have a class of `no-transition` or `no-teleporter`.
+4. Does not have an URL starting with `#` or `?`
+5. Does not have an URL starting with Site URL.
+6. Does not have an URL with a hostname matching the current page.
 
-As such, it is recommended you add a `target=_blank` or `target=_self` to any external links. 
+This is a comprehensive attempt to match and transition between internal links only. (If you think there is something missing here please open a Github issue.)
 
-In future, link elements with an `onclick` event assigned will also be detected and ignored.
+In future, `a` link elements with an `onclick` event assigned will also be detected and ignored.
 
 = How does it work? =
 
@@ -54,13 +57,17 @@ If the page transitions are not working at all, it is likely you have another pl
 
 = How do I debug the script? =
 
-You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any URL on your site. This will load the unminified version of the script and output extra messages to the browser javascript debug console (see previous question.)
+You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any URL on your site. This will load the unminified version of the script and output extra messages to the browser javascript debug console (see previous question.) If you make changes to the development script `teleporter.dev.js` for testing purposes, you can reprocess that file into minified and unminified versions and debug simultaneously with `?teleporter-minify=1&teleporter-debug=1`
 
 
 == Screenshots ==
 
 
 == Changelog ==
+
+= 0.9.8 =
+* Fixed: check for external links by prefix, host and site URL
+* Fixed: scrollbars on backward and forward history clicks
 
 = 0.9.7 = 
 * Initial Release Version

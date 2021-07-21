@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: http://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 0.9.7
+Version: 0.9.8
 Author URI: http://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -21,6 +21,10 @@ if ( !function_exists( 'add_action' ) ) {
 // - Add Teleporter Styles
 // - Minify Development Script
 // - Link Test Shortcode
+
+// Development TODOs
+// -----------------
+// - check for event handlers on a link tags ?
 
 
 // ----------------
@@ -118,13 +122,23 @@ function teleporter_localize_settings() {
 		$loading = "'" . esc_js( $loading ) . "'";
 	}
 
+	// --- set site URL ---
+	// 0.9.8: added for subdomain install checks
+	$siteurl = get_option( 'siteurl' );
+	if ( !$siteurl || !is_string( $siteurl ) ) {
+		$loading = 'false';
+	} else {
+		$siteurl = "'" . esc_js( $siteurl ) . "'";
+	}
+
 	// --- output script settings object ---
 	$js = "var teleporter = {";
 		$js .= "debug: " . esc_js( $debug ) . ", ";
 		$js .= "fadetime: " . esc_js( $fade_time ) . ", ";
 		$js .= "ignore: " . $ignore . ", ";
 		$js .= "iframe: " . $iframe . ", ";
-		$js .= "loading: " . $loading ;
+		$js .= "loading: " . $loading . ", ";
+		$js .= "siteurl: " . $siteurl;
 	$js .= "}" . PHP_EOL;
 
 	// --- ignore WordPress admin links ---
@@ -325,7 +339,6 @@ function teleporter_script_minifier() {
 	// echo '<br>----- Comment Free Script -----<br>';
 	// echo $contents;
 
-	exit;
 }
 
 // -------------------
