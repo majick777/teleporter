@@ -3,40 +3,44 @@
 /* ================= */
 
 /* --- Set Default Settings --- */
-var teleporter = {debug: false, fadetime: 2000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+/* 1.0.0: added pageload timeout setting */
+var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
 
 /* --- Set Initial Variables --- */
-var ttopwin; ttopwin = teleporter_top_window();
-if (typeof ttopwin.poppedstate == 'undefined') {
-	if  (typeof ttopwin.History == 'function') {ttopwin.poppedstate = ttopwin.History.getState();}
-	else {ttopwin.poppedstate = ('state' in ttopwin.history && ttopwin.history.state !== null);}
+var t_topwin; t_topwin = teleporter_top_window();
+if (typeof t_topwin.t_loading == 'undefined') {t_topwin.t_loading = false;}
+if (typeof t_topwin.t_loaded == 'undefined') {t_topwin.t_loaded = false;}
+if (typeof t_topwin.t_pushing == 'undefined') {t_topwin.t_pushing = false;}
+if (typeof t_topwin.t_initialurl == 'undefined') {t_topwin.t_initialurl = window.location.href;}
+if (typeof t_topwin.t_poppedstate == 'undefined') {
+	if  (typeof t_topwin.History == 'function') {t_topwin.t_poppedstate = t_topwin.History.getState();}
+	else {t_topwin.t_poppedstate = ('state' in t_topwin.history && t_topwin.history.state !== null);}
 }
-if (typeof ttopwin.initialurl == 'undefined') {ttopwin.initialurl = window.location.href;}
 
 /* --- Transition Page --- */
 function teleporter_transition_page(link) {
 	if ((typeof History != 'function') && !window.history) {return true;}
 
 	/* maybe load existing state */
-	if (typeof ttopwin.stateurls !== 'undefined') {
-		/* if (teleporter.debug) {console.log(ttopwin.stateurls);} */
-		stateurls = ttopwin.stateurls;
+	if (typeof t_topwin.stateurls !== 'undefined') {
+		/* if (teleporter.debug) {console.log(t_topwin.stateurls);} */
+		stateurls = t_topwin.stateurls;
 		for (i in stateurls) {
 			if (stateurls[i] == link.href) {
-				if (i == ttopwin.currentstate) {return false;}
+				if (i == t_topwin.currentstate) {return false;}
 				/* if (teleporter.debug) {console.log('Switching to Existing State: '+i);} */
 				teleporter_switch_state(i);
-				title = ttopwin.statetitles[i];
+				title = t_topwin.statetitles[i];
 				var obj = {id: i, title: title, url: link.href};
-				ttopwin.pushing = true;
-				if (typeof ttopwin.History == 'function') {ttopwin.History.replaceState(obj, title, link.href);}
-				else if (ttopwin.history) {ttopwin.history.replaceState(obj, title, link.href);}
+				t_topwin.t_pushing = true;
+				if (typeof t_topwin.History == 'function') {t_topwin.History.replaceState(obj, title, link.href);}
+				else if (t_topwin.history) {t_topwin.history.replaceState(obj, title, link.href);}
 				/* if (teleporter.debug) {
-					if (typeof ttopwin.History == 'function') {console.log(ttopwin.History.getState());}
-					else if (ttopwin.history) {console.log(ttopwin.history.state);}
+					if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
+					else if (t_topwin.history) {console.log(t_topwin.history.state);}
 				} */
-				ttopwin.pushing = false;
-				ttopwin.currentstate = i;
+				t_topwin.t_pushing = false;
+				t_topwin.currentstate = i;
 				return false;
 			}
 		}
@@ -47,28 +51,31 @@ function teleporter_transition_page(link) {
 	/* if (teleporter.debug) {console.log('Loading New Iframe:'); console.log(iframe);} */
 
 	/* maybe show loading div */
-	teleporter_show_loading();
+	teleporter_show_loading(link.href);
 
 	return false;
 }
 
 /* --- Transition Check --- */
-function teleporter_transition_check() {
+function teleporter_transition_check(url, win) {
 
-	href = null; iframe = null; topdoc = ttopwin.document;
-	if (ttopwin != window.self) {
-		iframes = parent.document.getElementsByClassName(teleporter.iframe);
+	href = null; iframe = null; topdoc = t_topwin.document;
+	if (t_topwin != win.self) {
+		/* 1.0.0: use here topdoc directly */
+		iframes = topdoc.getElementsByClassName(teleporter.iframe);
 		/* if (teleporter.debug) {console.log(iframes);} */
+		/* 1.0.0: allow for URL override via pageload timeout */
+		if (!url) {url = win.location.href;}
 		for (i = 0; i < iframes.length; i++) {
-			/* console.log(window.location.href+' - '+iframes[i].src); */
-			if (window.location.href == iframes[i].src) {iframe = iframes[i];}
+			/* console.log(url+' - '+iframes[i].src); */
+			if (url == iframes[i].src) {iframe = iframes[i];}
 		}
 		if (!iframe) {
-			/* if (teleporter.debug) {console.log('No matching parent iframe found for '+window.location.href+' !');} */
+			/* if (teleporter.debug) {console.log('No matching parent iframe found for '+win.location.href+' !');} */
 			return;
 		}
 
-		if (iframe.src != ttopwin.location.href) {
+		if (iframe.src != t_topwin.location.href) {
 
 			/* maybe hide loading div */
 			teleporter_hide_loading();
@@ -78,64 +85,92 @@ function teleporter_transition_check() {
 
 			/* store top window body margin and padding */
 	    	body = topdoc.getElementsByTagName('body')[0];
-	    	if (!ttopwin.bodymargin) {ttopwin.bodymargin = body.style.margin;}
-	    	if (!ttopwin.bodypadding) {ttopwin.bodypadding = body.style.padding;}
+	    	if (!t_topwin.bodymargin) {t_topwin.bodymargin = body.style.margin;}
+	    	if (!t_topwin.bodypadding) {t_topwin.bodypadding = body.style.padding;}
 
 			/* remove parent margin and padding and set overflow hidden hide scrollbars */
 	    	body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
 
 			/* fade in or display parent iframe with current document */
-			if ((typeof parent.jQuery == 'function') && teleporter.fadetime) {
-				ttopwin.jQuery(iframe).fadeIn(teleporter.fadetime);
-			} else {iframe.style.display = 'block';}
+			if (iframe.style.display != 'block') {
+				if ((typeof t_topwin.jQuery == 'function') && teleporter.fadetime) {
+					t_topwin.jQuery(iframe).fadeIn(teleporter.fadetime);
+				} else {iframe.style.display = 'block';}
+			}
 			href = iframe.src;
 	    }
-	} else {href = window.location.href;}
+	} else {href = win.location.href;}
 
 	/* set the browser URL (via pushstate) */
 	if (href) {
-		titletag = document.getElementsByTagName('title');
+		stateid = teleporter_push_state(href, win);
+		if (iframe) {iframe.setAttribute('id', teleporter.iframe+'-'+stateid);}
+	}
+}
+
+/* --- Push State --- */
+/* 1.0.0: separated function to allow for timeout usage */
+function teleporter_push_state(href, win) {
+		titletag = win.document.getElementsByTagName('title');
 		if (titletag.length) {title = titletag[0].innerHTML;} else {title = '';}
-		if (typeof ttopwin.statecount === 'undefined') {
-			ttopwin.statecount = 0; ttopwin.windowstateid = 0; stateid = 0;
+		if (typeof t_topwin.statecount === 'undefined') {
+			t_topwin.statecount = 0; t_topwin.windowstateid = 0; stateid = 0;
 			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
-			stateurls = []; stateurls[0] = href; ttopwin.stateurls = stateurls;
-			statetitles = []; statetitles[0] = title; ttopwin.statetitles = statetitles;
+			stateurls = []; stateurls[0] = href; t_topwin.stateurls = stateurls;
+			statetitles = []; statetitles[0] = title; t_topwin.statetitles = statetitles;
 		} else {
-			ttopwin.statecount++; stateid = ttopwin.statecount;
+			t_topwin.statecount++; stateid = t_topwin.statecount;
 			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
-			if ((ttopwin != window.self) && (typeof window.windowstateid == 'undefined') ) {
-				window.windowstateid = stateid;
-				/* if (teleporter.debug) {console.log(ttopwin.stateurls);} */
-				ttopwin.stateurls[stateid] = href;
-				ttopwin.statetitles[stateid] = title;
+			if ((t_topwin != win.self) && (typeof win.windowstateid == 'undefined') ) {
+				win.windowstateid = stateid;
+				/* if (teleporter.debug) {console.log(t_topwin.stateurls);} */
+				t_topwin.stateurls[stateid] = href;
+				t_topwin.statetitles[stateid] = title;
 			}
 		}
 		/* if (teleporter.debug) {
 			console.log('Setting Window PushState');
 			console.log('ID: '+stateid+' - Title: '+title+' - URL: '+href);
-			console.log(ttopwin.stateurls); console.log(ttopwin.statetitles);
+			console.log(t_topwin.stateurls); console.log(t_topwin.statetitles);
 		} */
 		var obj = {id: stateid, title: title, url: href};
-		ttopwin.pushing = true;
-		if (typeof ttopwin.History == 'function') {ttopwin.History.pushState(obj, title, href);}
-		else if (ttopwin.history) {ttopwin.history.pushState(obj, title, href);}
-		ttopwin.pushing = false;
+		t_topwin.t_pushing = true;
+		if (typeof t_topwin.History == 'function') {t_topwin.History.pushState(obj, title, href);}
+		else if (t_topwin.history) {t_topwin.history.pushState(obj, title, href);}
+		t_topwin.t_pushing = false;
 		teleporter_custom_event('teleporter-state-pushed', obj);
 		/* if (teleporter.debug) {
-			if (typeof ttopwin.History == 'function') {console.log(ttopwin.History.getState());}
-			else if (ttopwin.history) {console.log(ttopwin.history.state);}
+			if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
+			else if (t_topwin.history) {console.log(t_topwin.history.state);}
 		} */
 
-		ttopwin.currentstate = stateid;
-		if (iframe) {iframe.setAttribute('id', teleporter.iframe+'-'+stateid);}
-	}
+		t_topwin.currentstate = stateid;
+		t_topwin.t_loaded = t_topwin.t_loading; t_topwin.t_loading = false;
+		return stateid;
 }
 
 /* --- Show Loading Divs --- */
-function teleporter_show_loading() {
+function teleporter_show_loading(href) {
+
+	/* set maximum page load timeout */
+	/* 1.0.0: added to auto-display a slow loading pages */
+	t_topwin.t_loading = href;
+	setTimeout(function() {
+		if (!t_topwin.t_loading) {return;}
+		href = t_topwin.t_loading;
+		console.log('Page load timeout reached. Displaying URL: '+href);
+		iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
+ 		for (i = 0; i < iframes.length; i++) {
+ 			if (href == iframes[i].src) {iframe = iframes[i];}
+		}
+		if (!iframe) {return;}
+		win = iframe.contentWindow;
+		teleporter_transition_check(href, win);
+	}, teleporter.timeout);
+
+	/* maybe show the loading div */
 	if (!teleporter.loading) {return;}
-	topdoc = ttopwin.document;
+	topdoc = t_topwin.document;
 	topdoc.getElementsByTagName('body')[0].classList.add('teleporter-loading');
 	topdoc.getElementById(teleporter.loading).className = 'reset';
 	setTimeout(function() {topdoc.getElementById(teleporter.loading).className = 'loading';}, 250);
@@ -147,7 +182,8 @@ function teleporter_show_loading() {
 	setTimeout(function() {
 		for (i = 0; i < iframes.length; i++) {
 			doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
-			doc.getElementsByTagName('body')[0].classList.add('teleporter-loading');
+			body = doc.getElementsByTagName('body')[0];
+			if (body) {body.classList.add('teleporter-loading');}
 			if (doc.getElementById(teleporter.loading)) {doc.getElementById(teleporter.loading).className = 'loading';}
 		}
 	}, 250);
@@ -156,14 +192,16 @@ function teleporter_show_loading() {
 /* --- Hide Loading Divs --- */
 function teleporter_hide_loading() {
 	if (!teleporter.loading) {return;}
-	topdoc = ttopwin.document;
+	topdoc = t_topwin.document;
 	topdoc.getElementById(teleporter.loading).className = '';
 	topdoc.getElementsByTagName('body')[0].classList.remove('teleporter-loading');
 	iframes = topdoc.getElementsByClassName(teleporter.iframe);
 	for (i = 0; i < iframes.length; i++) {
 		doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
-		doc.getElementsByTagName('body')[0].classList.remove('teleporter-loading');
-		doc.getElementById(teleporter.loading).className = '';
+		body = doc.getElementsByTagName('body')[0];
+		if (body) {body.classList.remove('teleporter-loading');}
+		/* 1.0.0: fix to check for loading element */
+		if (doc.getElementById(teleporter.loading)) {doc.getElementById(teleporter.loading).className = '';}
 	}
 }
 
@@ -196,53 +234,53 @@ function teleporter_popstate_checker(event) {
 
 	/* ignore inital popstate that some browsers fire on page load */
 	/* ref: https://stackoverflow.com/a/17176274/5240159 */
-	ttopwin.initialpop = !ttopwin.poppedstate && (window.location.href == ttopwin.initialurl);
-	ttopwin.poppedstate = true; if (ttopwin.initialpop) {return;}
+	t_topwin.initialpop = !t_topwin.t_poppedstate && (window.location.href == t_topwin.t_initialurl);
+	t_topwin.t_poppedstate = true; if (t_topwin.initialpop) {return;}
 
 	/* ignore pushstate to create state ID */
-	if (ttopwin.pushing) {return;}
+	if (t_topwin.t_pushing) {return;}
 
 	/* if (teleporter.debug) {
-		if (window.document.referrer == (ttopwin.location.protocol+'//'+ttopwin.location.hostname)) {
+		if (window.document.referrer == (t_topwin.location.protocol+'//'+t_topwin.location.hostname)) {
 			console.log('Referrer matches top window hostname.');
 		}
 	} */
 
 	/* do not go back more than once from original URL */
-	if ((typeof ttopwin.backclicked != 'undefined') && ttopwin.backclicked) {
-		ttopwin.backclicked = false; return;
+	if ((typeof t_topwin.backclicked != 'undefined') && t_topwin.backclicked) {
+		t_topwin.backclicked = false; return;
 	}
 
 	/* get event history state */
 	stateid = null;
 	if (event.state) {console.log('Event State'); console.log(event);}
-	if  (typeof ttopwin.History != 'undefined') {
-		state = ttopwin.History.getState();
+	if  (typeof t_topwin.History != 'undefined') {
+		state = t_topwin.History.getState();
 		if (state.data.id) {stateid = state.data.id;}
 		else {
 			/* if (teleporter.debug) {console.log(state);} */
-			for (i = 0; i < ttopwin.stateurls.length; i++) {
+			for (i = 0; i < t_topwin.stateurls.length; i++) {
 				if (stateurls[i] == state.url) {stateid = i;}
 			}
 		}
-	} else if (ttopwin.history) {
+	} else if (t_topwin.history) {
 		if (event.state) {state = event.state; stateid = state.id;}
-		else if (ttopwin.history.state) {state = ttopwin.history.state; stateid = state.id;}
+		else if (t_topwin.history.state) {state = t_topwin.history.state; stateid = state.id;}
 		else {return true;}
 	} else {return true;}
 	/* if (teleporter.debug) {console.log('Popstate Event'); console.log(event); console.log(state);} */
 
 	/* check state ID and URL match */
 	/* note: this means back button was pressed beyond existing states */
-	if ((stateid === null) || (ttopwin.stateurls == 'undefined') || (state.url != ttopwin.stateurls[stateid])) {
+	if ((stateid === null) || (t_topwin.stateurls == 'undefined') || (state.url != t_topwin.stateurls[stateid])) {
 		/* found = false;
-		for (i in ttopwin.stateurls) {
-			if (ttopwin.stateurls[i] == state.url) {
-				stateid = i; title = ttopwin.statetitles[i]; found = true;
+		for (i in t_topwin.stateurls) {
+			if (t_topwin.stateurls[i] == state.url) {
+				stateid = i; title = t_topwin.statetitles[i]; found = true;
 				if (teleporter.debug) {console.log('State mismatch. Corrected to State ID '+stateid);}
 				var obj = {id: i, title: title, url: state.url};
-				if (typeof ttopwin.History == 'function') {ttopwin.History.replaceState(obj, title, state.url);}
-				else (ttopwin.history) {ttopwin.history.replaceState(obj, title, state.url);}
+				if (typeof t_topwin.History == 'function') {t_topwin.History.replaceState(obj, title, state.url);}
+				else (t_topwin.history) {t_topwin.history.replaceState(obj, title, state.url);}
 			}
 		}
 		if (!found) { */
@@ -250,12 +288,12 @@ function teleporter_popstate_checker(event) {
 			/* if (teleporter.debug) {
 				console.log('State mismatch. No transition action.');
 				console.log('ID: '+stateid+' - URL: '+state.url);
-				console.log(ttopwin.stateurls);
+				console.log(t_topwin.stateurls);
 			} */
-			if (state.url == ttopwin.initialurl) {
-				ttopwin.backclicked = true;
-				if (typeof ttopwin.History == 'function') {ttopwin.History.back();}
-				else if (ttopwin.history) {history.back();}
+			if (state.url == t_topwin.t_initialurl) {
+				t_topwin.backclicked = true;
+				if (typeof t_topwin.History == 'function') {t_topwin.History.back();}
+				else if (t_topwin.history) {history.back();}
 			} else {
 				/* lost from history so just load it */
 				teleporter_transition_page({href: state.url});
@@ -274,15 +312,15 @@ function teleporter_popstate_checker(event) {
 function teleporter_switch_state(stateid) {
 
 	/* check conditions */
-	if (typeof ttopwin.windowstateid == 'undefined') {return;}
-	if (typeof ttopwin.currentstate != 'undefined') {currentstate = ttopwin.currentstate;}
-	else {currentstate = 0; ttopwin.currentstate = 0;}
+	if (typeof t_topwin.windowstateid == 'undefined') {return;}
+	if (typeof t_topwin.currentstate != 'undefined') {currentstate = t_topwin.currentstate;}
+	else {currentstate = 0; t_topwin.currentstate = 0;}
 	if (stateid == currentstate) {return;}
 	/* if (teleporter.debug) {console.log('Switching to State ID: '+stateid+' (Current State: '+currentstate+')');} */
 	teleporter_custom_event('teleporter-switch-state', {stateid: stateid});
 
 	/* get all iframes */
-	iframes = ttopwin.document.getElementsByClassName(teleporter.iframe);
+	iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
 	/* if (teleporter.debug) {console.log(iframes);} */
 	iframe = false;
 	for (i = 0; i < iframes.length; i++) {
@@ -292,13 +330,13 @@ function teleporter_switch_state(stateid) {
 		}
 	}
 
-	if (ttopwin.windowstateid == stateid) {
+	if (t_topwin.windowstateid == stateid) {
 
 		/* restore top window view */
 		/* if (teleporter.debug) {console.log('Restoring First Page State');} */
-		body = ttopwin.document.getElementsByTagName('body')[0];
-		body.style.margin = ttopwin.bodymargin;
-		body.style.padding = ttopwin.bodypadding;
+		body = t_topwin.document.getElementsByTagName('body')[0];
+		body.style.margin = t_topwin.bodymargin;
+		body.style.padding = t_topwin.bodypadding;
 		body.style.overflow = 'scroll';
 		for (i = 0; i < iframes.length; i++) {
 			/* if (teleporter.debug) {console.log('Hiding All Iframes');} */
@@ -308,7 +346,7 @@ function teleporter_switch_state(stateid) {
 				} else {iframes[i].style.display = 'none';}
 			}
 		}
-		ttopwin.currentstate = 0;
+		t_topwin.currentstate = 0;
 
 	} else if (iframe) {
 
@@ -316,9 +354,9 @@ function teleporter_switch_state(stateid) {
 		/* doc = iframe.contentDocument || iframe.contentWindow.document;
 		body = doc.getElementsByTagName('body')[0];
 		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'scroll'; */
-		
+
 		/* set top window to passthrough view */
-		body = ttopwin.document.getElementsByTagName('body')[0];
+		body = t_topwin.document.getElementsByTagName('body')[0];
 		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
 		/* if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Top Window');} */
 
@@ -339,8 +377,8 @@ function teleporter_switch_state(stateid) {
 	}
 
 	/* set top window state and title */
-	ttopwin.document.title = ttopwin.statetitles[stateid];
-	ttopwin.currentstate = stateid;
+	t_topwin.document.title = t_topwin.statetitles[stateid];
+	t_topwin.currentstate = stateid;
 	teleporter_custom_event('teleporter-transitioned', {stateid: stateid});
 }
 
@@ -356,36 +394,54 @@ function teleporter_add_iframe(src) {
 	iframe.setAttribute('scrolling', 'auto');
 	iframe.setAttribute('allowfullscreen', 'true');
 	iframe.setAttribute('style', 'display:none;');
-	ttopwin.document.getElementsByTagName('body')[0].appendChild(iframe);
+	t_topwin.document.getElementsByTagName('body')[0].appendChild(iframe);
 	return iframe;
 }
 
-/* --- Check if URL location is external --- */
-function teleporter_is_external(el) {
-	/* treat hash or query as internal */
-	u = el.href; a = '#'; b = '?';
-	if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {return false;}
+/* --- Check link element link --- */
+/* 1.0.0: standardized and moved all link checks here */
+function teleporter_skip_link(el) {
+
+	/* treat an undefined/empty href as internal */
+	if ((typeof el.href == 'undefined') || (el.href == '')) {return true;}
+
+	/* skip links with a target other than self */
+	if ((typeof el.target != 'undefined') && (el.target != null) && (el.target != '_self') && (el.target != '')) {return true;}
+
+	/* skip links that already have an onclick sttribute */
+	if ((typeof el.onclick != 'undefined') && (el.onclick != null) && (el.onclick != '')) {return true;}
+
+	/* set href shortname */
+	u = el.href; skip = true;
+
+	/* treat hash or query or javascript at position 0 as internal */
+	if ((u.indexOf('#') === 0) || (u.indexOf('?') === 0) || (u.indexOf('javascript') === 0)) {skip = false;}
 
 	/* check against site URL */
-	if ((teleporter.siteurl != '') && (u.indexOf(teleporter.siteurl) === 0)) {return false;}
+	if ((teleporter.siteurl != '') && (u.indexOf(teleporter.siteurl) === 0)) {skip = false;}
 
 	/* check against host/protocol */
-	if (el.host == ttopwin.location.host) {
-		a = ttopwin.location.protocol+'//'+ttopwin.location.host;
-		b = '//'+ttopwin.location.host;
-		if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {
-			/* if (teleporter.debug) {console.log('Found internal URL: '+u);} */
-			return false;
-		}		
+	if (el.host == t_topwin.location.host) {
+		a = t_topwin.location.protocol+'//'+t_topwin.location.host;
+		b = '//'+t_topwin.location.host;
+		if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {skip = false;}
 	}
 
-	/* if (teleporter.debug) {console.log('Found external URL: '+u);} */
-	return true;
+	/* check against ignore classes */
+	if (!skip && teleporter.ignore.length && (typeof el.classList != 'undefined') && el.classList.length) {
+		for (i in teleporter.ignore) {
+			if (el.classList.contains(teleporter.ignore[i])) {skip = true;}
+		}
+	}
+
+	/* if (teleporter.debug) {if (skip) {console.log('Found external URL: '+u);} } */
+	/* if (teleporter.debug) {if (!skip) {console.log('Found internal URL: '+u);} } */
+	return skip;
 }
 
 /* --- Remove Window State ID on Unload --- */
 addEventListener('unload', function(event) {
-	ttopwin.windowstateid = 'undefined';
+	t_topwin.windowstateid = 'undefined';
 }, false);
 
 /* --- Get Top Window (Accessible) --- */
@@ -422,30 +478,20 @@ if (typeof window.jQuery !== 'undefined') {
 		/* loop all links to add onclick attribute */
 		teleporter_custom_event('teleporter-check-links', false);
 		jQuery('a').each(function() {
+			/* 1.0.0: use standard link checking function */
 			element = jQuery(this)[0];
-			if ( !element.onclick && !jQuery(this).attr('onclick') && (element.href != '')
-			  && !jQuery(this).attr('target')  && (element.href.indexOf('javascript:') !== 0) ) {
-				skip = false;
-				/* check against ignore classes */
-				if (teleporter.ignore.length) {
-					for (i in teleporter.ignore) {
-						if (jQuery(this).hasClass(teleporter.ignore[i])) {skip = true;}
-					}
-				}
-				/* ignore all external links */
-				external = teleporter_is_external(element);
-				if (!skip && !external) {
-					/* TODO: also check for click events via findHandlerJS ? */
-					ev = jQuery._data(element, 'events');
-					if (!ev || !ev.click) {
-						/* if (teleporter.debug) {console.log('Adding onclick attribute to link.');} */
-						jQuery(this).attr('onclick', 'return teleporter_transition_page(this);');
-					}
+			skip = teleporter_skip_link(element);
+			if (!skip) {
+				/* TODO: also check for click events via findHandlerJS ? */
+				ev = jQuery._data(element, 'events');
+				if (!ev || !ev.click) {
+					/* if (teleporter.debug) {console.log('Adding onclick attribute to link.');} */
+					jQuery(this).attr('onclick', 'return teleporter_transition_page(this);');
 				}
 			}
 		});
 		teleporter_custom_event('teleporter-links-checked', false);
-		teleporter_transition_check();
+		teleporter_transition_check(false, window);
 		teleporter_add_popstate_checker();
 	});
 
@@ -496,27 +542,17 @@ if (typeof window.jQuery !== 'undefined') {
 		teleporter_custom_event('teleporter-check-links', false);
 		alinks = document.getElementsByTagName('a');
 		for (var i = 0; i < alinks.length; i++) {
-			if ( !alinks[i].onclick && !alinks[i].getAttribute('onclick') && (alinks[i].href != '')
-			  && !alinks[i].getAttribute('target') && (alinks[i].href.indexOf('javascript:') !== 0) ) {
-				skip = false;
-				/* check against ignore classes */
-				if (teleporter.ignore.length) {
-					for (i in teleporter.ignore) {
-						if (alinks[i].classList.contains(teleporter.ignore[i])) {skip = true;}
-					}
-				}
-				/* ignore all external links */
-				external = teleporter_is_external(alinks[i]);
-				if (!skip && !external) {
-					/* TODO: check for click events via findHandlerJS ? */
-					/* if (teleporter.debug) {console.log('Adding onclick attribute to link '+alinks[i]);} */
-					alinks[i].setAttribute('onclick', 'return teleporter_transition_page(this);');
-				}
+			/* 1.0.0: use standard link checking function */
+			skip = teleporter_skip_link(alinks[i]);
+			if (!skip) {
+				/* TODO: check for click events via findHandlerJS ? */
+				/* if (teleporter.debug) {console.log('Adding onclick attribute to link '+alinks[i]);} */
+				alinks[i].setAttribute('onclick', 'return teleporter_transition_page(this);');
 			}
 		}
 		teleporter_custom_event('teleporter-links-checked', false);
 
-		teleporter_transition_check();
+		teleporter_transition_check(false, window);
 		teleporter_add_popstate_checker();
 	});
 }

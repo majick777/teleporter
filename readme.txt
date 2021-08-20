@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 5.7.2
-Stable tag: 0.9.7
+Tested up to: 5.8
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,11 +33,12 @@ Once you have activated the plugin, any internal links on your site will automat
 Any standard `<a>` link on the page that:
 
 1. Does not have a target attribute set.
-2. Dose not have an onclick attribute already set.
-3. Dose not have a class of `no-transition` or `no-teleporter`.
+2. Does not have an onclick attribute already set.
+3. Does not have a class of `no-transition` or `no-teleporter`.
 4. Does not have an URL starting with `#` or `?`
 5. Does not have an URL starting with Site URL.
 6. Does not have an URL with a hostname matching the current page.
+7. Does not have an URL containing `/wp-admin/` or `wp-login.php`.
 
 This is a comprehensive attempt to match and transition between internal links only. (If you think there is something missing here please open a Github issue.)
 
@@ -64,6 +65,16 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.0.0 =
+* Added: Plugin Panel (1.2.0)
+* Added: Teleporter Configuration Settings
+* Added: Page Load Timeout to auto-transition
+* Improved: Match timeout to loading bar animation
+* Improved: Streamlined link checking function
+
+= 0.9.9 =
+* Improved: ignore links containing wp-login.php
 
 = 0.9.8 =
 * Fixed: check for external links by prefix, host and site URL
