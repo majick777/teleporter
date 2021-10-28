@@ -290,7 +290,8 @@ function teleporter_skip_link(el) {
 	if ((typeof el.target != 'undefined') && (el.target != null) && (el.target != '_self') && (el.target != '')) {return true;}
 	if ((typeof el.onclick != 'undefined') && (el.onclick != null) && (el.onclick != '')) {return true;}
 	u = el.href; skip = true;
-	if ((u.indexOf('#') === 0) || (u.indexOf('?') === 0) || (u.indexOf('javascript') === 0)) {skip = false;}
+	if ((u.indexOf('javascript') === 0) || (u.indexOf('mailto') === 0) || (u.indexOf('tel') === 0)) {return true;}
+	if ((u.indexOf('#') === 0) || (u.indexOf('?') === 0)) {skip = false;}
 	if ((teleporter.siteurl != '') && (u.indexOf(teleporter.siteurl) === 0)) {skip = false;}
 	if (el.host == t_topwin.location.host) {
 		a = t_topwin.location.protocol+'//'+t_topwin.location.host;

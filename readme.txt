@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 5.8
-Stable tag: 1.0.0
+Tested up to: 5.8.1
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,10 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.0.1 =
+* Fixed: always ignore javascript href links
+* Improvedd: also ignore mailto and tel links
 
 = 1.0.0 =
 * Added: Plugin Panel (1.2.0)
