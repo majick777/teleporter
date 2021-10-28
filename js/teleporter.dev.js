@@ -414,8 +414,11 @@ function teleporter_skip_link(el) {
 	/* set href shortname */
 	u = el.href; skip = true;
 
-	/* treat hash or query or javascript at position 0 as internal */
-	if ((u.indexOf('#') === 0) || (u.indexOf('?') === 0) || (u.indexOf('javascript') === 0)) {skip = false;}
+	/* 1.0.1: always treat javascript, mailto and tel at position 0 as external */
+	if ((u.indexOf('javascript') === 0) || (u.indexOf('mailto') === 0) || (u.indexOf('tel') === 0)) {return true;}
+
+	/* treat hash or query at position 0 as internal */
+	if ((u.indexOf('#') === 0) || (u.indexOf('?') === 0)) {skip = false;}
 
 	/* check against site URL */
 	if ((teleporter.siteurl != '') && (u.indexOf(teleporter.siteurl) === 0)) {skip = false;}

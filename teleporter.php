@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: http://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.0
+Version: 1.0.1
 Author URI: http://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -39,9 +39,7 @@ if ( !function_exists( 'add_action' ) ) {
 
 // Development TODOs
 // -----------------
-// - test display page on page load timeout
-// - check for event handlers on a link tags ?
-
+// - check for event handlers on a link tags z
 
 
 // --------------------------------
@@ -76,7 +74,7 @@ function teleporter_add_admin_menu( $added, $args ) {
 	if ( !file_exists( $wqhelper ) ) {
 		return false;
 	}
-	
+
 	// --- filter menu capability early ---
 	$capability = apply_filters( 'wordquest_menu_capability', 'manage_options' );
 
@@ -205,7 +203,7 @@ $options = array(
 		'helper'  => __( 'Number of milliseconds to wait for new Page to load before fading in anyway. Use 0 for instant display.', 'teleporter' ),
 		'section' => 'basic',
 	),
-	
+
 	// === Loading Bar ===
 
 	// --- Loading Bar Position ---
@@ -230,7 +228,7 @@ $options = array(
 		'helper'  => __( 'Loading bar color used when fading in new pages.', 'teleporter' ),
 		'section' => 'loadingbar',
 	),
-	
+
 	// === Advanced ===
 
 	// --- Ignore Link Classes ---
@@ -244,7 +242,7 @@ $options = array(
 
 	// --- Section Titles ---
 	'sections' => array(
-		'basic'      => __( 'General', 'teleporter' ), 
+		'basic'      => __( 'General', 'teleporter' ),
 		'loadingbar' => __( 'Loading Bar', 'teleporter' ),
 		'advanced'   => __( 'Advanced', 'teleporter' ),
 	),
@@ -287,7 +285,7 @@ $settings = array(
 	'textdomain'   => 'teleporter',
 
 	// --- Freemius ---
-	// TODO: add Freemius integration 
+	// TODO: add Freemius integration
 	// 'freemius_id'  => '',
 	// 'freemius_key' => '',
 	// 'hasplans'     => false,
@@ -320,12 +318,16 @@ add_action( 'wp_enqueue_scripts', 'teleporter_enqueue_scripts' );
 function teleporter_enqueue_scripts() {
 
 	// --- check settings ---
-	// 1.0.0: added plugin settings 
+	// 1.0.0: added plugin settings
 	$enabled = teleporter_get_setting( 'page_fade_switch' );
+	$enabled = apply_filters( 'teleporter_page_fade_switch', $enabled );
 	if ( 'yes' != $enabled ) {
+		if ( isset( $_REQUEST['teleporter-debug'] ) && ( '1' == $_REQUEST['teleporter-debug'] ) ) {
+			echo '<span style="display:none;">Teleporter NOT Enabled</span>';
+		}
 		return;
 	}
-	
+
 	// --- enqueue find event handlers script ---
 	// TODO: check for click event handlers in teleporter.js using findEventHandlers
 	// ref: https://stackoverflow.com/questions/2518421/jquery-find-events-handlers-registered-with-an-object
@@ -355,6 +357,10 @@ function teleporter_enqueue_scripts() {
 	$teleporter_url = plugins_url( 'js/teleporter' . $suffix . '.js', __FILE__ );
 	$version = filemtime( dirname( __FILE__ ) . '/js/teleporter' . $suffix . '.js' );
 	wp_enqueue_script( 'teleporter', $teleporter_url, array( 'jquery' ), $version, false );
+
+	if ( isset( $_REQUEST['teleporter-debug'] ) && ( '1' == $_REQUEST['teleporter-debug'] ) ) {
+		echo '<span style="display:none;">Teleporter Script Enqueued: ' . $teleporter_url . '</span>';
+	}
 
 	// --- localize script settings ---
 	teleporter_localize_settings();
@@ -396,7 +402,8 @@ function teleporter_localize_settings() {
 	if ( is_string( $ignore_classes ) ) {
 		$ignore_classes = explode( ',', $ignore_classes );
 	}
-	if ( is_array( $ignore_classes ) && ( count( $ignore_classes > 0 ) ) ) {
+	// 1.0.1: fix to possible not countable warning with !empty check
+	if ( is_array( $ignore_classes ) && !empty( $ignore_classes ) && ( count( $ignore_classes > 0 ) ) ) {
 		foreach ( $ignore_classes as $i => $ignore_class ) {
 			if ( $i > 0 ) {
 				$ignore .= ',';
@@ -413,7 +420,7 @@ function teleporter_localize_settings() {
 	} else {
 		$iframe = "'" . esc_js( $iframe ) . "'";
 	}
-	
+
 	// --- set loading element ID ---
 	$loading = apply_filters( 'teleporter_loading_id', 'teleporter-loading' );
 	if ( !$loading || !is_string( $loading ) ) {
@@ -483,7 +490,7 @@ function teleporter_localize_settings() {
 
 		$js .= "});" . PHP_EOL;
 	}
-	
+
 	// --- filter extra script and add to teleporter ---
 	$js = apply_filters( 'teleporter_script_settings', $js );
 	wp_add_inline_script( 'teleporter', $js );
@@ -526,7 +533,7 @@ add_action( 'wp_footer', 'teleporter_dynamic_styles' );
 function teleporter_dynamic_styles() {
 
 	// --- check settings ---
-	// 1.0.0: added plugin settings 
+	// 1.0.0: added plugin settings
 	$enabled = teleporter_get_setting( 'page_fade_switch' );
 	if ( 'yes' != $enabled ) {
 		return;
@@ -602,7 +609,7 @@ function teleporter_dynamic_styles() {
 add_action( 'init', 'teleporter_script_minifier' );
 function teleporter_script_minifier() {
 
-	// --- check trigger conditions ---	
+	// --- check trigger conditions ---
 	if ( !isset( $_REQUEST['teleporter-minify'] ) || !in_array( $_REQUEST['teleporter-minify'], array( '1', 'yes' ) ) ) {
 		return;
 	}
@@ -641,7 +648,7 @@ function teleporter_script_minifier() {
 	$mincontents = str_replace( "\t", '', $mincontents );
 	$mincontents = str_replace( "\r", ' ', $mincontents );
 	$mincontents = str_replace( "\n", ' ', $mincontents );
-	
+
 	// --- write minified script ---
 	$fh = fopen( $minscript, 'w' );
 	fwrite( $fh, $mincontents );
@@ -672,14 +679,14 @@ function teleporter_script_minifier() {
 		}
 	}
 	$contents = implode( "\n", $newlines );
-	
+
 	// --- write comment stripped script ---
 	$fh = fopen( $script, 'w' );
 	fwrite( $fh, $contents );
 	fclose( $fh );
 	// echo '<br>----- Comment Free Script -----<br>';
 	// echo $contents;
-	
+
 }
 
 // -------------------
@@ -703,7 +710,7 @@ function teleporter_test_shortcode() {
 	}
 
 	ob_start();
-	
+
 	// 0.9.7: added esc_html to outputs
 ?>
 
