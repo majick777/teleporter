@@ -4,7 +4,7 @@ Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
 Tested up to: 5.9.3
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,11 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.0.3 =
+* Updated: Plugin Panel (1.2.2)
+* Fixed: (properly) not countable warning on ignore link classes
+* Fixed: ignore comment reply link filter function name
 
 = 1.0.2 =
 * Fixed: not countable warning on ignore link classes

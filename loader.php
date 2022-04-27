@@ -5,7 +5,7 @@
 // ===========================
 //
 // --------------
-// Version: 1.2.0
+// Version: 1.2.2
 // --------------
 // Note: Changelog and structure at end of file.
 //
@@ -120,6 +120,10 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 		// -----------------
 		public function __construct( $args ) {
 
+			if ( !is_array( $args ) ) {
+				return;
+			}
+
 			// --- set debug switch ---
 			// 1.1.2: added debug switch check
 			$prefix = '';
@@ -149,7 +153,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			unset( $args['options'] );
 
 			// --- set plugin args and namespace ---
-			// 1.1.9: filter all arguments 
+			// 1.1.9: filter all arguments
 			$args = apply_filters( $args['namespace'] . '_args', $args );
 			$this->args = $args;
 			$this->namespace = $args['namespace'];
@@ -224,7 +228,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					$profiles = explode( ',', $proslug );
 					$proslug = trim( $profiles[0] );
 				}
-				$args['proslug'] = substr( $proslug, 0, - 4 );    // strips .php extension
+				$args['proslug'] = substr( $proslug, 0, - 4 ); // strips .php extension
 				$args['profiles'] = $profiles;
 			}
 
@@ -332,7 +336,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			}
 
 			// 1.0.9: trigger add settings action
-			do_action( $args['nsmespace'] . '_add_settings', $args );
+			// 1.2.1: fix to namespace typo (nsmespace)
+			do_action( $args['namespace'] . '_add_settings', $args );
 		}
 
 		// -----------------------
@@ -521,7 +526,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					if ( isset( $_POST[$postkey] ) ) {
 						$posted = $_POST[$postkey];
 					}
-					$newsettings = false;
+					$newsettings = null;
 
 					// --- maybe validate special options ---
 					// 1.0.9: check for special options to prepare
@@ -713,7 +718,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					if ( $this->debug ) {
 						echo 'New Settings for Key ' . $key . ': ';
 						// 1.2.0: added isset check for newsetting
-						if ( isset( $newsetting ) && ( $newsetting || ( 0 === $newsetting ) || ( '0' === $newsetting ) ) ) {
+						if ( !is_null( $newsettings ) ) {
 							echo '(to-validate) ' . print_r( $newsettings, true ) . '<br>';
 						} else {
 							// 1.1.7 handle if (new) key not set yet
@@ -727,17 +732,19 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 					// --- maybe validate new settings ---
 					// 1.1.9: fix to allow saving of zero value
-					if ( $newsettings || ( 0 === $newsettings ) || ( '0' === $newsettings ) ) {
+					// 1.2.1: fix to allow saving of empty value
+					if ( !is_null( $newsettings ) ) {
 						if ( is_array( $newsettings ) ) {
 
 							// --- validate array of settings ---
 							// 1.1.9: fix to allow saving of zero value
+							// 1.2.1: fix to allow saving of empty value
 							foreach ( $newsettings as $newkey => $newvalue ) {
 								$newsetting = $this->validate_setting( $newvalue, $valid, $validate_args );
 								if ( $this->debug ) {
 									echo 'Validated Setting array value ' . $newvalue . ' to ' . $newsetting;
 								}
-								if ( $newsetting && ( '' != $newsetting ) ) {
+								if ( $newsetting || ( '' == $newsetting ) ) {
 									$newsettings[$newkey] = $newsetting;
 								} elseif ( ( 0 == $newsetting ) || ( '0' == $newsetting ) ) {
 									$newsettings[$newkey] = $newsetting;
@@ -751,7 +758,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 								$settings[$key] = $newsettings;
 							}
 
-						} else {
+						} elseif ( $newsettings || ( '' == $newsettings ) || ( 0 === $newsettings ) || ( '0' === $newsettings ) ) {
 
 							// --- validate single setting ---
 							if ( 'csv' == $type ) {
@@ -770,10 +777,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							} else {
 								$newsetting = $this->validate_setting( $newsettings, $valid, $validate_args );
 								// 1.1.9: fix to allow saving of zero value
+								// 1.2.1: fix to allow saving of empty value
 								if ( $this->debug ) {
-									echo 'Validated Setting single value ' . $newsettings . ' to ' . $newsetting;
+									echo 'Validated Setting single value ' . $newsettings . ' to ' . $newsetting . '<br>';
 								}
-								if ( $newsetting || ( 0 == $newsetting ) || ( '0' == $newsetting ) ) {
+								if ( $newsetting || ( '' == $newsetting ) || ( 0 == $newsetting ) || ( '0' == $newsetting ) ) {
 									$settings[$key] = $newsetting;
 								}
 							}
@@ -802,13 +810,13 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				$settings = call_user_func( $funcname, $settings );
 			}
 
-			// --- output new settings ---			
+			// --- output new settings ---
 			if ( $this->debug ) {
 				echo "<br><b>All New Settings:</b><br>";
 				print_r( $settings );
 				echo "<br><br>";
 			}
-				
+
 			if ( $settings && is_array( $settings ) ) {
 
 				// --- loop default keys to remove others ---
@@ -839,7 +847,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 						}
 					}
 				}
-				
+
 
 				// --- update the plugin settings ---
 				$settings['savetime'] = time();
@@ -957,8 +965,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				// 1.0.6: fix to posted variable type (vposted)
 				// 1.0.9: remove check for http prefix to allow other protocols
 				// 1.1.7: use FILTER_SANITIZE_URL not FILTER_SANITIZE_STRING
+				// 1.2.1: allow for clearing URL by saving empty value
 				$posted = trim( $posted );
-				$posted = filter_var( $posted, FILTER_SANITIZE_URL );
+				if ( '' != $posted ) {
+					$posted = filter_var( $posted, FILTER_SANITIZE_URL );
+				}
 
 				// 1.1.7: remove FILTER_VALIDATE_URL check - not working!?
 				if ( $this->debug ) {
@@ -1152,6 +1163,12 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 			// --- AJAX readme viewer ---
 			add_action( 'wp_ajax_' . $namespace . '_readme_viewer', array( $this, 'readme_viewer' ) );
+
+			// --- load Freemius (requires PHP 5.4+) ---
+			// 1.2.1: move Freemius loading to plugins_loaded hook
+			if ( version_compare( PHP_VERSION, '5.4.0' ) >= 0 ) {
+				add_action( 'plugins_loaded', array( $this, 'load_freemius' ), 5 );
+			}
 		}
 
 		// ---------------------
@@ -1170,10 +1187,10 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			}
 
 			// --- Pro Functions ---
-			$plan = 'free';
 			// 1.0.2: added prototype auto-loading of Pro file(s)
+			// 1.2.1: fix overriding of plan arg to free
 			// (to work with @fs_premium_only file list)
-			if ( count( $args['profiles'] ) > 0 ) {
+			if ( isset( $args['profiles'] ) && count( $args['profiles'] ) > 0 ) {
 				$included = get_included_files();
 				foreach ( $args['profiles'] as $profile ) {
 					// --- chech for php extension ---
@@ -1189,8 +1206,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					}
 				}
 			}
-			$args['plan'] = $plan;
-			$this->args = $args;
+			// 1.2.0: only change plan setting if premium files found
+			if ( isset( $plan ) ) {
+				$args['plan'] = $plan;
+				$this->args = $args;
+			}
 
 			// --- Plugin Update Checker ---
 			// note: lack of updatechecker.php file indicates WordPress.Org SVN repo version
@@ -1210,10 +1230,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			// 1.0.9: added action for extra loader helpers (eg. WordQuest)
 			do_action( $args['namespace'] . '_loader_helpers', $args );
 
-			// --- Freemius (requires PHP 5.4+) ---
-			if ( version_compare( PHP_VERSION, '5.4.0' ) >= 0 ) {
-				$this->load_freemius();
-			}
+			// --- load Freemius (requires PHP 5.4+) ---
+			// 1.2.1: moved to plugins_loaded action hook
 
 		}
 
@@ -1331,6 +1349,12 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 		// ====================
 		public function load_freemius() {
 
+			// 1.2.1: no need to load if not in admin area
+			// if ( !is_admin() ) {
+			//	return;
+			// }
+			// echo '<span style="display:none;">Freemius Loading...</span>';
+
 			$args = $this->args;
 			$namespace = $this->namespace;
 
@@ -1338,13 +1362,16 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			if ( !isset( $args['freemius_id'] ) || !isset( $args['freemius_key'] ) ) {
 				return;
 			}
-
+			
 			// --- check for free / premium plan ---
 			// convert plan string value of 'free' or 'premium' to boolean premium switch
 			// TODO: check for active addons also ?
 			$premium = false;
 			if ( isset( $args['plan'] ) && ( 'premium' == $args['plan'] ) ) {
 				$premium = true;
+			} else {
+				// 1.2.1: added filter for premium init
+				$premium = apply_filters( 'freemius_init_premium_' . $args['namespace'], $premium );
 			}
 
 			// --- maybe redirect link to plugin support forum ---
@@ -1357,9 +1384,10 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					// changes the support forum slug for premium based on the pro plugin file slug
 					// 1.0.7: fix support URL undefined variable warning
 					$support_url = $args['support'];
-					if ( $premium ) {
-						$support_url = str_replace( $args['slug'], $args['proslug'], $support_url );
-					}
+					// 1.2.1: removed in favour of filtering via Pro
+					// if ( $premium && isset( $args['proslug'] ) ) {
+					// 	$support_url = str_replace( $args['slug'], $args['proslug'], $support_url );
+					// }
 					$support_url = apply_filters( 'freemius_plugin_support_url_redirect', $support_url, $args['slug'] );
 					wp_redirect( $support_url );
 					exit;
@@ -1382,15 +1410,17 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				if ( !isset( $args['type'] ) ) {
 					$args['type'] = 'plugin';
 				}
-				if ( !isset( $args['hasaddons'] ) ) {
-					$args['hasaddons'] = false;
+				if ( !isset( $args['wporg'] ) ) {
+					$args['wporg'] = false;
 				}
 				if ( !isset( $args['hasplans'] ) ) {
 					$args['hasplans'] = false;
 				}
-				if ( !isset( $args['wporg'] ) ) {
-					$args['wporg'] = false;
+				if ( !isset( $args['hasaddons'] ) ) {
+					$args['hasaddons'] = false;
 				}
+				// 1.2.1: add filter for addons init
+				$args['hasaddons'] = apply_filters( 'freemius_init_addons_' . $args['namespace'], $args['hasaddons'] );
 
 				// --- set defaults for options submenu key values ---
 				// 1.0.2: fix to isset check keys
@@ -1408,6 +1438,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 				// --- set Freemius settings from plugin settings ---
 				// 1.1.1: remove admin_url wrapper on Freemius first-path value
+				// TODO: further possible args for Freemius init (eg. bundle_id)
+				// ref: https://freemius.com/help/documentation/wordpress-sdk/integrating-freemius-sdk/
 				$first_path = add_query_arg( 'page', $args['slug'], 'admin.php' );
 				$first_path = add_query_arg( 'welcome', 'true', $first_path );
 				$settings = array(
@@ -1426,8 +1458,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 						'support'    => $args['support'],
 						'account'    => $args['account'],
 					),
-				);		
-				
+				);
+
 				// --- maybe add plugin submenu to parent menu ---
 				if ( isset( $args['parentmenu'] ) ) {
 					$settings['menu']['parent'] = array( 'slug' => $args['parentmenu'] );
@@ -1435,12 +1467,18 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 				// --- filter settings before initializing ---
 				$settings = apply_filters( 'freemius_init_settings_' . $args['namespace'], $settings );
+				if ( $this->debug ) {
+					echo '<span style="display:none;">Freemius Settings: ' . print_r( $settings, true ) . '</span>';
+				}
 				if ( !$settings || !is_array( $settings ) ) {
 					return;
 				}
 
 				// --- initialize Freemius now ---
 				$freemius = $GLOBALS[$namespace . '_freemius'] = fs_dynamic_init( $settings );
+				if ( $this->debug ) {
+					echo '<span style="display:none;">Freemius Object: ' . print_r( $freemius, true ) . '</span>';
+				}
 
 				// --- set plugin basename ---
 				// 1.0.1: set free / premium plugin basename
@@ -1450,7 +1488,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 				// --- add Freemius connect message filter ---
 				$this->freemius_connect();
-				
+
 				// --- fire Freemius loaded action ---
 				do_action( $args['namespace'] . '_loaded' );
 			}
@@ -1547,6 +1585,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 		// -----------------
 		// Plugin Page Links
 		// -----------------
+		// 1.2.2: merge in plugin links instead of using array_unshift
 		public function plugin_links( $links, $file ) {
 
 			$args = $this->args;
@@ -1555,48 +1594,56 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				// --- add settings link ---
 				// 1.1.1: fix to settings page link URL
 				// (depending on whether top level menu or Settings submenu item)
-				$page = 'options-general.php';
-				if ( $this->menu_added ) {$page = 'admin.php';}
+				$page = $this->menu_added ? 'admin.php' : 'options-general.php';
 				$settings_url = add_query_arg( 'page', $args['slug'], admin_url( $page ) );
 				$settings_link = "<a href='" . esc_url( $settings_url ) . "'>" . esc_html( __( 'Settings' ) ) . "</a>";
-				array_unshift( $links, $settings_link );
+				$link = array( 'settings' => $settings_link );
+				$links = array_merge( $link, $links );
 
 				// --- maybe add Pro upgrade link ---
 				if ( isset( $args['hasplans'] ) && $args['hasplans'] ) {
-				
-					// -- internal upgrade link ---
-					// TODO: check if premium is already installed
-					if ( isset( $args['upgrade_link'] ) ) {
-						$upgrade_url = $args['upgrade_link'];
-						$upgrade_target = '';
-					} else {
-						$upgrade_url = add_query_arg( 'page', $args['slug'] . '-pricing', admin_url( 'admin.php' ) );
-						$upgrade_target = !strstr( $upgrade_url, '/wp-admin/' ) ? ' target="_blank"' : '';
-					}
-					$upgrade_link = "<b><a href='" . esc_url( $upgrade_url ) . "'" . $upgrade_target . ">" . esc_html( __('Upgrade' ) ) . "</a></b>";
-					array_unshift( $links, $upgrade_link );
-					
-					// --- external pro link ---
-					// 1.2.0: added pro link 
-					if ( isset( $args['pro_link'] ) ) {
-						$pro_target = !strstr( $args['pro_link'], '/wp-admin/' ) ? ' target="_blank"' : '';
-						$pro_link = "<b><a href='" . esc_url( $args['pro_link'] ) . "'" . $pro_target . ">" . esc_html( __('Pro Details' ) ) . "</a></b>";
-						array_unshift( $links, $pro_link );
+
+					// 1.2.1: add check if premium is already installed
+					if ( !isset( $args['plan'] ) || ( 'premium' != $args['plan'] ) ) {
+
+						// -- internal upgrade link ---
+						if ( isset( $args['upgrade_link'] ) ) {
+							$upgrade_url = $args['upgrade_link'];
+							$upgrade_target = '';
+						} else {
+							$upgrade_url = add_query_arg( 'page', $args['slug'] . '-pricing', admin_url( 'admin.php' ) );
+							$upgrade_target = !strstr( $upgrade_url, '/wp-admin/' ) ? ' target="_blank"' : '';
+						}
+						$upgrade_link = "<b><a href='" . esc_url( $upgrade_url ) . "'" . $upgrade_target . ">" . esc_html( __('Upgrade' ) ) . "</a></b>";
+						$link = array( 'upgrade' => $upgrade_link );
+						$links = array_merge( $link, $links );
+
+						// --- external pro link ---
+						// 1.2.0: added separate pro details link
+						if ( isset( $args['pro_link'] ) ) {
+							$pro_target = !strstr( $args['pro_link'], '/wp-admin/' ) ? ' target="_blank"' : '';
+							$pro_link = "<b><a href='" . esc_url( $args['pro_link'] ) . "'" . $pro_target . ">" . esc_html( __('Pro Details' ) ) . "</a></b>";
+							$link = array( 'pro-details' => $pro_link );
+							$links = array_merge( $link, $links );
+						}
 					}
 				}
 
 				// --- maybe add Addons link ---
 				// 1.2.0: activated add-ons link
-				if ( isset( $args['hasaddons'] ) && $args['hasaddons'] ) {
+				// 1.2.2: remove duplication of addons link
+				if ( !isset( $args['hasaddons'] ) || !$args['hasaddons'] ) {
 					if ( isset( $args['addons_link'] ) ) {
 						$addons_url = $args['addons_link'];
 						$addons_target = !strstr( $addons_url, '/wp-admin/' ) ? ' target="_blank"' : '';
-					} else {
-						$addons_url = add_query_arg( 'page', $args['slug'] . '-addons', admin_url( 'admin.php' ) );
-						$addons_target = '';
+						$addons_link = "<a href='" . esc_url( $addons_url )."'" . $addons_target . ">" . esc_html( __( 'Add Ons' ) ) . "</a>";
+						$link = array( 'addons' => $addons_link );
+						$links = array_merge( $link, $links );
 					}
-					$addons_link = "<a href='" . esc_url( $addons_url )."'" . $addons_target . ">" . esc_html( __( 'Add Ons' ) ) . "</a>";
-					array_unshift( $links, $addons_link );
+				}
+
+				if ( $this->debug ) {
+					echo '<span style="display:none;">Plugin Links for ' . $file . ': ' . print_r( $links, true )  . '</span>';
 				}
 			}
 
@@ -1636,6 +1683,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				return;
 			}
 			if ( $args['slug'] != substr( $_REQUEST['page'], 0, strlen( $args['slug'] ) ) ) {
+				return;
+			}
+			
+			// 1.2.2: bug out if adminsanity notices are loaded
+			if ( isset( $GLOBALS['teleporter_data']['load']['notices'] ) && $GLOBALS['teleporter_data']['load']['notices'] ) {
 				return;
 			}
 
@@ -1727,7 +1779,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			// 1.1.9: add filter for plugin icon url
 			$icon_url = apply_filters( $namespace . '_settings_page_icon_url', $icon_url );
 			echo '<td>';
-			if ( $icon_url ) {				
+			if ( $icon_url ) {
 				echo '<img class="plugin-settings-page-icon" src="' . esc_url( $icon_url ) . '" width="128" height="128">';
 			}
 			echo '</td>';
@@ -1753,7 +1805,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			// --- subtitle ---
 			// 1.1.9: added optional subtitle filter display
 			$subtitle = apply_filters( $namespace . '_settings_page_subtitle', '' );
-			if ( '' != $subtitle ) { 
+			if ( '' != $subtitle ) {
 				echo '<tr><td colspan="3" align="center">';
 				echo '<h4 class="plugins-settings-page-subtitle" style="font-size:14px; margin-top:0;">' . esc_html( $subtitle ) . '</h4>';
 				echo '</td></tr>';
@@ -1831,7 +1883,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				} elseif ( isset( $args['type'] ) && ( 'theme' == $args['type'] ) ) {
 					$rate_url = 'https://wordpress.org/support/theme/' . $args['wporgslug'] . '/reviews/#new-post';
 				} else {
-					$rate_url = 'https://wordpress.org/plugins/' . $args['wporgslug'] . '/reviews/#new-post';
+					// 1.2.2: update rating URL to match new repo scheme
+					$rate_url = 'https://wordpress.org/support/plugins/' . $args['wporgslug'] . '/reviews/#new-post';
 				}
 				if ( isset( $args['ratetext'] ) ) {
 					$rate_text = $args['ratetext'];
@@ -1983,7 +2036,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			$defaults = $this->default_settings();
 			$settings = $this->get_settings( false );
 
-			// --- output saved settings ---			
+			// --- output saved settings ---
 			if ( $this->debug ) {
 				echo "<br><b>Saved Settings:</b><br>";
 				print_r( $settings );
@@ -2370,16 +2423,19 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					  || ( isset( $args['hasaddons'] ) && $args['hasaddons'] ) ) {
 						$upgrade_link = add_query_arg( 'page', $args['slug'] . '-pricing', admin_url( 'admin.php' ) );
 						$upgrade_target = '';
-					} elseif ( isset( $args['upgrade_link'] ) ) {
-						$upgrade_link = $args['upgrade_link'];
-						$upgrade_target = !strstr( $pro_link, '/wp-admin/' ) ? ' target="_blank"' : '';
 					}
+					if ( isset( $args['upgrade_link'] ) ) {
+						$upgrade_link = $args['upgrade_link'];
+						$upgrade_target = !strstr( $upgrade_link, '/wp-admin/' ) ? ' target="_blank"' : '';
+					}
+					// 1.2.1: fix to check pro_link not upgrade_link
 					if ( isset( $args['pro_link'] ) ) {
 						$pro_link = $args['pro_link'];
 						$pro_target = !strstr( $pro_link, '/wp-admin/' ) ? ' target="_blank"' : '';
 					}
 					if ( $upgrade_link || $pro_link ) {
-						$row .= __( 'Available in Pro.' ) . '<br>';
+						// 1.2.2: change text from Available in Pro
+						$row .= __( 'Premium Feature.' ) . '<br>';
 						if ( $upgrade_link ) {
 							$row .= '<a href="' . esc_url( $upgrade_link ) . '"' . $upgrade_target . '>' . esc_html( __( 'Upgrade Now' ) ) . '</a>';
 						}
@@ -2387,7 +2443,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							$row .= ' | ';
 						}
 						if ( $pro_link ) {
-							$row .= '<a href="' . esc_url( $pro_link ) . '"' . $pro_target . '>' . esc_html( __( 'Pro Details' ) ) . '</a>';
+							// 1.2.2: change text from Pro details
+							$row .= '<a href="' . esc_url( $pro_link ) . '"' . $pro_target . '>' . esc_html( __( 'Details' ) ) . '</a>';
 						}
 					} else {
 						$row .= esc_html( __( 'Coming soon in Pro version!' ) );
@@ -3155,6 +3212,19 @@ if ( !function_exists( 'teleporter_load_prefixed_functions' ) ) {
 // CHANGELOG
 // =========
 
+// == 1.2.2 ==
+// - merge in plugin links instead of using array_unshift
+// - update plugin repository rating URL
+// - remove duplication of addons link
+// - no notice boxer if adminsanity notices loaded
+// - change upgrade texts
+
+// == 1.2.1 ==
+// - added filters for premium and addons init
+// - fix overriding of plan arg to free
+// - add check if premium already installed
+// - fix namespace typo in add settings action
+
 // == 1.2.0 ==
 // - fix missing CSV field type row output condition
 // - fix to saving of current settings tab (if any)
@@ -3171,8 +3241,8 @@ if ( !function_exists( 'teleporter_load_prefixed_functions' ) ) {
 // - added media library upload image field type
 // - added color picker and color picker alpha field types
 // - automatically remove unused settings tabs
-// - fix to text field attribute quoting 
-// - fix to not escape number step button function 
+// - fix to text field attribute quoting
+// - fix to not escape number step button function
 // - remove FILTER_VALIDATE_URL from URL saving (not working)
 
 // == 1.1.6 ==
