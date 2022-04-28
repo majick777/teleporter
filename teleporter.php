@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: http://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.2
+Version: 1.0.3
 Author URI: http://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -405,16 +405,13 @@ function teleporter_localize_settings() {
 		if ( strstr( $ignore_classes, ',' ) ) {
 			$ignore_classes = explode( ',', $ignore_classes );
 		} else {
-			$ignore_classes = array( $ignore_classes );
+			$ignore_classes = array( trim( $ignore_classes ) );
 		}
-	}
-	// 1.0.2: added extra check to force to an array
-	if ( !is_array( $ignore_classes ) || ( function_exists( 'is_countable' ) && !is_countable( $ignore_classes ) ) ) {
-		$ignore_classes = array();
 	}
 	
 	// 1.0.1: fix to possible not countable warning with !empty check
-	if ( is_array( $ignore_classes ) && !empty( $ignore_classes ) && ( count( $ignore_classes > 0 ) ) ) {
+	// 1.0.3: fix to the fix, the count brackets are the culprit here
+	if ( is_array( $ignore_classes ) && !empty( $ignore_classes ) && ( count( $ignore_classes ) > 0 ) ) {
 		foreach ( $ignore_classes as $i => $ignore_class ) {
 			if ( $i > 0 ) {
 				$ignore .= ',';
@@ -513,7 +510,7 @@ function teleporter_localize_settings() {
 // --------------------------
 // 1.0.2: added ignore class for comment reply links
 add_filter( 'teleporter_ignore_classes', 'teleporter_ignore_comment_reply_link_classes' );
-function teleporter_comment_reply_link_classes( $classes ) {
+function teleporter_ignore_comment_reply_link_classes( $classes ) {
 	if ( !is_array( $classes ) ) {
 		$classes = array();
 	}
