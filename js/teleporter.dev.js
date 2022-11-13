@@ -4,7 +4,7 @@
 
 /* --- Set Default Settings --- */
 /* 1.0.0: added pageload timeout setting */
-var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['no-transition','no-teleporter'], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['no-transition','no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
 
 /* --- Set Initial Variables --- */
 var t_topwin; t_topwin = teleporter_top_window();
@@ -402,6 +402,10 @@ function teleporter_add_iframe(src) {
 /* 1.0.0: standardized and moved all link checks here */
 function teleporter_skip_link(el) {
 
+	/* check for an already treated link */
+	/* 1.0.4: added to allow for multiple runs */
+	if (el.getAttribute('teleporter') == '1') {return true;}
+
 	/* treat an undefined/empty href as internal */
 	if ((typeof el.href == 'undefined') || (el.href == '')) {return true;}
 
@@ -436,9 +440,8 @@ function teleporter_skip_link(el) {
 			if (el.classList.contains(teleporter.ignore[i])) {skip = true;}
 		}
 	}
-
-	/* if (teleporter.debug) {if (skip) {console.log('Found external URL: '+u);} } */
-	/* if (teleporter.debug) {if (!skip) {console.log('Found internal URL: '+u);} } */
+	
+	if (teleporter.debug) {if (!skip) {console.log('Found internal URL: '+u);} }
 	return skip;
 }
 
@@ -467,6 +470,87 @@ function teleporter_get_window_parent(win) {
 	return win;
 }
 
+/* --- Add Link Click Events --- */
+function teleporter_add_link_events() {
+	jQuery('a').each(function() {
+		/* 1.0.0: use standard link checking function */
+		el = jQuery(this)[0];
+		skip = teleporter_skip_link(el);
+		if (!skip) {
+			/* TODO: also check for click events via findHandlerJS ? */
+			/* 1.0.4: ignore events with existing click handler */
+			ev = jQuery._data(el, 'events');
+			if (ev && ev.click && teleporter.debug) {console.log(ev.click);}
+			el.setAttribute('teleporter', '1');
+			/* 1.0.4: add event listener to append to existing events */
+			teleporter_add_link_event(el);
+		}
+	});
+}
+
+/* --- Add Link Click Event --- */
+function teleporter_add_link_event(el) {
+	el.addEventListener('click', function(e) {
+		e.stopImmediatePropagation();
+		e.preventDefault();
+		target = jQuery(e.target);
+		if (target.prop('tagName') != 'a') {target = target.closest('a');}
+		element = target[0];
+		return teleporter_transition_page(element);
+	});
+}
+
+/* --- Add Onclick Attribute to Links --- */
+function teleporter_add_link_onclicks() {
+	alinks = document.getElementsByTagName('a');
+	for (var i = 0; i < alinks.length; i++) {
+		/* 1.0.0: use standard link checking function */
+		skip = teleporter_skip_link(alinks[i]);
+		if (!skip) {
+			/* TODO: check for click events via findHandlerJS ? */
+			alinks[i].setAttribute('teleporter', '1');
+			teleporter_add_link_onclick(alinks[i]);
+			
+			/* TODO: could find parent a tag if not clicked element
+			/* alinks[i].addEventListener('click', function(e) {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+				return teleporter_transition_page(e.target);
+			}); */
+		}
+	}
+}
+
+/* --- Add Link Onclick Attribute --- */
+function teleporter_add_link_onclick(el) {
+	el.setAttribute('onclick', 'return teleporter_transition_page(this);');
+}
+
+
+/* --- Add Dynamic Link Clicks --- */
+/* 1.0.4: added event delegation clicks for dynamic link classes */
+function teleporter_dynamic_link_clicks() {
+	if (!teleporter.dynamic.length) {return;}
+	var dynamic_classes = '';
+	for (i = 0; i < dynamic.length; i++) {
+		if (dynamic_classes != '') {dynamic_classes += ', ';}
+		dynamic_classes += '.'+dynamic[i];
+	}	
+	jQuery('a').on('click', dynamic_classes, function(e) {
+		target = jQuery(e.target);
+		if (target.prop('tagName') != 'a') {target = target.closest('a');}
+		if (target.getAttribute('teleporter') == '1') {return;}
+		element = target[0];
+		skip = teleporter_skip_link(element);
+		if (!skip) {
+			e.stopImmediatePropagation();
+			e.preventDefault();
+			return teleporter_transition_page(element);	
+		}
+	});
+}
+
+
 /* --- Add Onclick Loading to Page Links --- */
 if (typeof window.jQuery !== 'undefined') {
 
@@ -480,22 +564,13 @@ if (typeof window.jQuery !== 'undefined') {
 
 		/* loop all links to add onclick attribute */
 		teleporter_custom_event('teleporter-check-links', false);
-		jQuery('a').each(function() {
-			/* 1.0.0: use standard link checking function */
-			element = jQuery(this)[0];
-			skip = teleporter_skip_link(element);
-			if (!skip) {
-				/* TODO: also check for click events via findHandlerJS ? */
-				ev = jQuery._data(element, 'events');
-				if (!ev || !ev.click) {
-					/* if (teleporter.debug) {console.log('Adding onclick attribute to link.');} */
-					jQuery(this).attr('onclick', 'return teleporter_transition_page(this);');
-				}
-			}
-		});
+		teleporter_add_link_events();
 		teleporter_custom_event('teleporter-links-checked', false);
 		teleporter_transition_check(false, window);
 		teleporter_add_popstate_checker();
+
+		/* 1.0.4: try to account for links added later */
+		setTimeout(function() {teleporter_add_link_events();;}, 5000);
 	});
 
 } else {
@@ -543,20 +618,13 @@ if (typeof window.jQuery !== 'undefined') {
 
 		/* loop all links to add onclick attribute */
 		teleporter_custom_event('teleporter-check-links', false);
-		alinks = document.getElementsByTagName('a');
-		for (var i = 0; i < alinks.length; i++) {
-			/* 1.0.0: use standard link checking function */
-			skip = teleporter_skip_link(alinks[i]);
-			if (!skip) {
-				/* TODO: check for click events via findHandlerJS ? */
-				/* if (teleporter.debug) {console.log('Adding onclick attribute to link '+alinks[i]);} */
-				alinks[i].setAttribute('onclick', 'return teleporter_transition_page(this);');
-			}
-		}
+		teleporter_add_link_onclicks();
 		teleporter_custom_event('teleporter-links-checked', false);
 
 		teleporter_transition_check(false, window);
 		teleporter_add_popstate_checker();
+
+		setTimeout(function() {teleporter_add_link_onclicks();}, 5000);
 	});
 }
 
