@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 5.9.3
-Stable tag: 1.0.3
+Tested up to: 6.1
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,7 +42,9 @@ Any standard `<a>` link on the page that:
 
 This is a comprehensive attempt to match and transition between internal links only. (If you think there is something missing here please open a Github issue.)
 
-In future, `a` link elements with an `onclick` event assigned will also be detected and ignored.
+= How is dynamic link content handled? =
+
+As of 1.0.4, Teleporter will also handle dynamic link content. That is, links added to the page later. Simply specify the classes of these links on the plugin settings page, and they are then handled with click event delegation (instead of being directly adding to the `a` link.) So for example, if you have a mobile menu that creates links upon expanding it with a `.mobile-link` class, you can add `mobile-link` in the plugin settings. When the mobile menu link is clicked, Teleporter will transition the page as normal. This makes it possible to use Teleporter with frontend builder or frameworks that add their content with javascript.
 
 = How does it work? =
 
@@ -65,6 +67,11 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.0.4 =
+* Updated: Plugin Panel (1.2.8)
+* Improved: add link event handlers instead of onclicks
+* Added: dynamic link class click event handling option
 
 = 1.0.3 =
 * Updated: Plugin Panel (1.2.2)

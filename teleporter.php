@@ -5,12 +5,12 @@ Plugin Name: Teleporter
 Plugin URI: http://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.3
+Version: 1.0.4
 Author URI: http://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
 
-if ( !function_exists( 'add_action' ) ) {
+if ( !defined( 'ABSPATH' ) ) {
 	exit;
 }
 
@@ -240,6 +240,16 @@ $options = array(
 		'section' => 'advanced',
 	),
 
+	// --- Dynamic Link Classes ---
+	// 1.0.4: added dynamic link classes handling
+	'dynamic_link_classes' => array(
+		'type'    => 'csv',
+		'label'   => __( 'Dynamic Link Classes', 'teleporter' ),
+		'default' => '',
+		'helper'  => __( 'Dynamic links are those added to the page after loading. Add their classes here include them in transitions. (Comma separated list of classes to include.)', 'teleporter' ),
+		'section' => 'advanced',
+	),
+
 	// --- Section Titles ---
 	'sections' => array(
 		'basic'      => __( 'General', 'teleporter' ),
@@ -347,10 +357,17 @@ function teleporter_enqueue_scripts() {
 
 	// --- enqueue teleporter script ---
 	// 0.9.7: fix to debug mode via querystring
+	// 1.0.4: allow for .dev script extension debugging via querystring
 	if ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
 		$suffix = '';
-	} elseif ( isset( $_REQUEST['teleporter-debug'] ) && ( '1' == $_REQUEST['teleporter-debug'] ) ) {
-		$suffix = '';
+	} elseif ( isset( $_REQUEST['teleporter-debug'] ) ) {
+		if ( '1' == $_REQUEST['teleporter-debug'] ) {
+			$suffix = '';
+		} elseif ( '2' == $_REQUEST['teleporter-debug'] ) {
+			$suffix = '.min';
+		} elseif ( 'dev' == $_REQUEST['teleporter-debug'] ) {
+			$suffix = '.dev';
+		}
 	} else {
 		$suffix = '.min';
 	}
@@ -405,7 +422,7 @@ function teleporter_localize_settings() {
 		if ( strstr( $ignore_classes, ',' ) ) {
 			$ignore_classes = explode( ',', $ignore_classes );
 		} else {
-			$ignore_classes = array( trim( $ignore_classes ) );
+			$ignore_classes = array( $ignore_classes );
 		}
 	}
 	
@@ -416,10 +433,32 @@ function teleporter_localize_settings() {
 			if ( $i > 0 ) {
 				$ignore .= ',';
 			}
-			$ignore .= "'" . esc_js( $ignore_class ) . "'";
+			$ignore .= "'" . esc_js( trim( $ignore_class ) ) . "'";
 		}
 	}
 	$ignore .= ']';
+
+	// --- set dynamic link classes ---
+	// 1.0.4: added for dynamic links
+	$dynamic_classes = teleporter_get_setting( 'dynamic_link_classes' );
+	$dynamic_classes = apply_filters( 'teleporter_dynamic_classes', $dynamic_classes );
+	$dynamic = '[';
+	if ( $dynamic_classes && is_string( $dynamic_classes ) ) {
+		if ( strstr( $dynamic_classes, ',' ) ) {
+			$dynamic_classes = explode( ',', $dynamic_classes );
+		} else {
+			$dynamic_classes = array( $dynamic_classes );
+		}
+	}
+	if ( is_array( $dynamic_classes ) && !empty( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
+		foreach ( $dynamic_classes as $i => $dynamic_class ) {
+			if ( $i > 0 ) {
+				$dynamic .= ',';
+			}
+			$dynamic .= "'" . esc_js( trim( $dynamic_class ) ) . "'";
+		}
+	}
+	$dynamic .= ']';
 
 	// --- set iframe class ---
 	$iframe = apply_filters( 'teleporter_iframe_class', 'teleporter-iframe' );
@@ -454,11 +493,13 @@ function teleporter_localize_settings() {
 
 	// --- output script settings object ---
 	// 1.0.0: added timeout setting
+	// 1.0.4: added dynamic classes setting
 	$js = "var teleporter = {";
 		$js .= "debug: " . esc_js( $debug ) . ", ";
 		$js .= "fadetime: " . esc_js( $fade_time ) . ", ";
 		$js .= "timeout: " . esc_js( $timeout ) . ", ";
 		$js .= "ignore: " . $ignore . ", ";
+		$js .= "dynamic: " . $dynamic . ", ";
 		$js .= "iframe: " . $iframe . ", ";
 		$js .= "loading: " . $loading . ", ";
 		$js .= "siteurl: " . $siteurl;
@@ -496,7 +537,7 @@ function teleporter_localize_settings() {
 			$js .= "}";
 		$js .= "}";
 
-		$js .= "});" . PHP_EOL;
+		$js .= "});" . "\n";
 	}
 
 	// --- filter extra script and add to teleporter ---
