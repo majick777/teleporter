@@ -532,19 +532,21 @@ function teleporter_add_link_onclick(el) {
 function teleporter_dynamic_link_clicks() {
 	if (!teleporter.dynamic.length) {return;}
 	var dynamic_classes = '';
-	for (i = 0; i < dynamic.length; i++) {
+	for (i = 0; i < teleporter.dynamic.length; i++) {
 		if (dynamic_classes != '') {dynamic_classes += ', ';}
-		dynamic_classes += '.'+dynamic[i];
-	}	
+		dynamic_classes += '.'+teleporter.dynamic[i];
+	}
+	if (teleporter.debug) {console.log('Dynamic Classes: '+dynamic_classes);}
 	jQuery('a').on('click', dynamic_classes, function(e) {
+		e.stopImmediatePropagation();
+		e.preventDefault();
 		target = jQuery(e.target);
 		if (target.prop('tagName') != 'a') {target = target.closest('a');}
 		if (target.getAttribute('teleporter') == '1') {return;}
 		element = target[0];
 		skip = teleporter_skip_link(element);
 		if (!skip) {
-			e.stopImmediatePropagation();
-			e.preventDefault();
+			if (teleporter.debug) {console.log(target);}
 			return teleporter_transition_page(element);	
 		}
 	});
@@ -565,6 +567,8 @@ if (typeof window.jQuery !== 'undefined') {
 		/* loop all links to add onclick attribute */
 		teleporter_custom_event('teleporter-check-links', false);
 		teleporter_add_link_events();
+		/* 1.0.5: load dynamic link clicks automatically */
+		teleporter_dynamic_link_clicks();
 		teleporter_custom_event('teleporter-links-checked', false);
 		teleporter_transition_check(false, window);
 		teleporter_add_popstate_checker();

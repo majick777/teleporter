@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: http://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.4
+Version: 1.0.5
 Author URI: http://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -250,6 +250,17 @@ $options = array(
 		'section' => 'advanced',
 	),
 
+	// --- Script Debug Mode ---
+	// 1.0.5: added for script debugging
+	'script_debug' => array(
+		'type'    => 'checkbox',
+		'label'   => __( 'Debug Mode', 'teleporter' ),
+		'value'    => 'yes',
+		'default' => '',
+		'helper'  => __( 'Use unminified script and output console debug messages.', 'teleporter' ),
+		'section' => 'advanced',
+	),
+
 	// --- Section Titles ---
 	'sections' => array(
 		'basic'      => __( 'General', 'teleporter' ),
@@ -358,7 +369,10 @@ function teleporter_enqueue_scripts() {
 	// --- enqueue teleporter script ---
 	// 0.9.7: fix to debug mode via querystring
 	// 1.0.4: allow for .dev script extension debugging via querystring
+	$teleporter_debug = teleporter_get_setting( 'script_debug' );
 	if ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
+		$suffix = '';
+	} elseif ( 'yes' == $teleporter_debug ) {
 		$suffix = '';
 	} elseif ( isset( $_REQUEST['teleporter-debug'] ) ) {
 		if ( '1' == $_REQUEST['teleporter-debug'] ) {
@@ -389,8 +403,8 @@ function teleporter_enqueue_scripts() {
 function teleporter_localize_settings() {
 
 	// --- set debug mode ---
-	$debug = 'false';
-	if ( isset( $_REQUEST['teleporter-debug'] ) && ( '1' == $_REQUEST['teleporter-debug'] ) ) {
+	$debug = ( 'yes' == teleporter_get_setting( 'script_debug' ) ) ? 'true' : 'false';
+	if ( isset( $_REQUEST['teleporter-debug'] ) ) {
 		$debug = 'true';
 	}
 
