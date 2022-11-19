@@ -4,7 +4,7 @@ Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
 Tested up to: 6.1
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,11 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.0.6 =
+* Added: filter to allow for non-class ignore/dynamic selectors
+* Fixed: dynamic link event bubbling on iPhone (via cursor:pointer)
+* Fixed: method of adding of comment-reply-link ignore class
 
 = 1.0.5 =
 * Hotfix: automatically load dynamic link check

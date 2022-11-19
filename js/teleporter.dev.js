@@ -4,7 +4,10 @@
 
 /* --- Set Default Settings --- */
 /* 1.0.0: added pageload timeout setting */
-var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['no-transition','no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+/* 1.0.6: added existing definition check */
+if (typeof teleporter == 'undefined') {
+	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+}
 
 /* --- Set Initial Variables --- */
 var t_topwin; t_topwin = teleporter_top_window();
@@ -435,9 +438,9 @@ function teleporter_skip_link(el) {
 	}
 
 	/* check against ignore classes */
-	if (!skip && teleporter.ignore.length && (typeof el.classList != 'undefined') && el.classList.length) {
+	if (!skip && teleporter.ignore.length) {
 		for (i in teleporter.ignore) {
-			if (el.classList.contains(teleporter.ignore[i])) {skip = true;}
+			if (el.matches(teleporter.ignore[i])) {skip = true;}
 		}
 	}
 	
@@ -529,15 +532,16 @@ function teleporter_add_link_onclick(el) {
 
 /* --- Add Dynamic Link Clicks --- */
 /* 1.0.4: added event delegation clicks for dynamic link classes */
+/* 1.0.6: allow for any selectors not just classes */
 function teleporter_dynamic_link_clicks() {
 	if (!teleporter.dynamic.length) {return;}
-	var dynamic_classes = '';
+	var dynamic_selectors = '';
 	for (i = 0; i < teleporter.dynamic.length; i++) {
-		if (dynamic_classes != '') {dynamic_classes += ', ';}
-		dynamic_classes += '.'+teleporter.dynamic[i];
+		if (dynamic_selectors != '') {dynamic_selectors += ', ';}
+		dynamic_selectors += teleporter.dynamic[i];
 	}
-	if (teleporter.debug) {console.log('Dynamic Classes: '+dynamic_classes);}
-	jQuery('a').on('click', dynamic_classes, function(e) {
+	if (teleporter.debug) {console.log('Dynamic Selectors: '+dynamic_selectors);}
+	jQuery('a').on('click', dynamic_selectors, function(e) {
 		e.stopImmediatePropagation();
 		e.preventDefault();
 		target = jQuery(e.target);

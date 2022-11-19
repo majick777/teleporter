@@ -2,11 +2,11 @@
 
 /*
 Plugin Name: Teleporter
-Plugin URI: http://wordquest.org/plugins/teleporter/
+Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.5
-Author URI: http://wordquest.org
+Version: 1.0.6
+Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
 
@@ -30,6 +30,7 @@ if ( !defined( 'ABSPATH' ) ) {
 // === Teleporter ===
 // - Enqueue Teleporter Scripts
 // - Localize Script Settings
+// - Dynamic Link iPhone Fix
 // - Add History API Support
 // - Add Teleporter Styles
 // - Minify Development Script
@@ -372,8 +373,6 @@ function teleporter_enqueue_scripts() {
 	$teleporter_debug = teleporter_get_setting( 'script_debug' );
 	if ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
 		$suffix = '';
-	} elseif ( 'yes' == $teleporter_debug ) {
-		$suffix = '';
 	} elseif ( isset( $_REQUEST['teleporter-debug'] ) ) {
 		if ( '1' == $_REQUEST['teleporter-debug'] ) {
 			$suffix = '';
@@ -382,6 +381,8 @@ function teleporter_enqueue_scripts() {
 		} elseif ( 'dev' == $_REQUEST['teleporter-debug'] ) {
 			$suffix = '.dev';
 		}
+	} elseif ( 'yes' == $teleporter_debug ) {
+		$suffix = '';
 	} else {
 		$suffix = '.min';
 	}
@@ -389,7 +390,7 @@ function teleporter_enqueue_scripts() {
 	$version = filemtime( dirname( __FILE__ ) . '/js/teleporter' . $suffix . '.js' );
 	wp_enqueue_script( 'teleporter', $teleporter_url, array( 'jquery' ), $version, false );
 
-	if ( isset( $_REQUEST['teleporter-debug'] ) && ( '1' == $_REQUEST['teleporter-debug'] ) ) {
+	if ( $teleporter_debug || isset( $_REQUEST['teleporter-debug'] ) ) {
 		echo '<span style="display:none;">Teleporter Script Enqueued: ' . $teleporter_url . '</span>';
 	}
 
@@ -447,7 +448,24 @@ function teleporter_localize_settings() {
 			if ( $i > 0 ) {
 				$ignore .= ',';
 			}
-			$ignore .= "'" . esc_js( trim( $ignore_class ) ) . "'";
+			$ignore .= "'." . esc_js( trim( $ignore_class ) ) . "'";
+		}
+	}
+	// 1.0.6: add filter for other more specific (not just class) selectors
+	$ignore_selectors = apply_filters( 'teleporter_ignore_selectors', '' );
+	if ( $ignore_selectors && is_string( $ignore_selectors ) ) {
+		if ( strstr( $ignore_selectors, ',' ) ) {
+			$ignore_selectors = explode( ',', $ignore_selectors );
+		} else {
+			$ignore_selectors = array( $ignore_selectors );
+		}
+	}
+	if ( is_array( $ignore_selectors ) && ( count( $ignore_selectors ) > 0 ) ) {
+		foreach ( $ignore_selectors as $ignore_selector ) {
+			if ( strlen( $ignore ) > 1 ) {
+				$ignore .= ',';
+			}
+			$ignore .= "'" . esc_js( trim( $ignore_selector ) ) . "'";
 		}
 	}
 	$ignore .= ']';
@@ -464,12 +482,29 @@ function teleporter_localize_settings() {
 			$dynamic_classes = array( $dynamic_classes );
 		}
 	}
-	if ( is_array( $dynamic_classes ) && !empty( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
-		foreach ( $dynamic_classes as $i => $dynamic_class ) {
-			if ( $i > 0 ) {
+	if ( is_array( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
+		foreach ( $dynamic_classes as $dynamic_class ) {
+			if ( strlen( $dynamic ) > 1 ) {
 				$dynamic .= ',';
 			}
-			$dynamic .= "'" . esc_js( trim( $dynamic_class ) ) . "'";
+			$dynamic .= "'." . esc_js( trim( $dynamic_class ) ) . "'";
+		}
+	}
+	// 1.0.6: add filter for other more specific (not just class) selectors
+	$dynamic_selectors = apply_filters( 'teleporter_dynamic_selectors', '' );
+	if ( $dynamic_selectors && is_string( $dynamic_selectors ) ) {
+		if ( strstr( $dynamic_selectors, ',' ) ) {
+			$dynamic_selectors = explode( ',', $dynamic_selectors );
+		} else {
+			$dynamic_selectors = array( $dynamic_selectors );
+		}
+	}
+	if ( is_array( $dynamic_selectors ) && ( count( $dynamic_selectors ) > 0 ) ) {
+		foreach ( $dynamic_selectors as $dynamic_selector ) {
+			if ( strlen( $dynamic ) > 1 ) {
+				$dynamic .= ',';
+			}
+			$dynamic .= "'" . esc_js( trim( $dynamic_selector ) ) . "'";
 		}
 	}
 	$dynamic .= ']';
@@ -558,6 +593,42 @@ function teleporter_localize_settings() {
 	$js = apply_filters( 'teleporter_script_settings', $js );
 	wp_add_inline_script( 'teleporter', $js );
 
+	// 1.0.6: added to fix dunamic links on iphones
+	if ( is_array( $dynamic_classes ) && !empty( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
+		add_action( 'wp_footer', 'teleporter_dynamic_link_iphone_fix' );
+	}
+
+}
+
+// -----------------------
+// Dynamic Link iPhone Fix
+// -----------------------
+// 1.0.6: added for iPhone Safari click event bubbling
+function teleporter_dynamic_link_iphone_fix() {
+
+	$dynamic_classes = teleporter_get_setting( 'dynamic_link_classes' );
+	$dynamic_classes = apply_filters( 'teleporter_dynamic_classes', $dynamic_classes );
+	$dynamic = '';
+	if ( $dynamic_classes && is_string( $dynamic_classes ) ) {
+		if ( strstr( $dynamic_classes, ',' ) ) {
+			$dynamic_classes = explode( ',', $dynamic_classes );
+		} else {
+			$dynamic_classes = array( $dynamic_classes );
+		}
+	}
+	if ( is_array( $dynamic_classes ) && !empty( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
+		// ref: https://gravitydept.com/blog/js-click-event-bubbling-on-ios
+		echo '<style>';
+		foreach ( $dynamic_classes as $i => $dynamic_class ) {
+			if ( $i > 0 ) {
+				echo ',';
+			}
+			echo '.' . esc_html( trim( $dynamic_class ) );
+		}
+		echo ' {cursor: pointer;}';
+		echo '</style>' . "\n";
+	}
+	
 }
 
 // --------------------------
@@ -566,10 +637,16 @@ function teleporter_localize_settings() {
 // 1.0.2: added ignore class for comment reply links
 add_filter( 'teleporter_ignore_classes', 'teleporter_ignore_comment_reply_link_classes' );
 function teleporter_ignore_comment_reply_link_classes( $classes ) {
-	if ( !is_array( $classes ) ) {
-		$classes = array();
+
+	// 1.0.6: allow for array or string value
+	if ( is_array( $classes ) ) {
+		$classes[] = 'comment-reply-link';
+	} elseif ( '' != $classes ) {
+		$classes .= ',comment-reply-link';
+	} else {
+		$classes = 'comment-reply-link';
 	}
-	$classes[] = 'comment-reply-link';
+	
 	return $classes;
 }
 
@@ -815,26 +892,33 @@ function teleporter_test_shortcode() {
 /* Add Javascript Links */
 newlinka = document.createElement('a');
 newlinka.innerHTML = 'JS Added Link A';
-newlinka.href = 'somepage.php';
+newlinka.href = '?page=a';
 newlinka.onclick = function() {alert("JS Added Link A"); return false;};
 document.getElementById('links').appendChild(newlinka);
 bra = document.createElement('br');
 brb = document.createElement('br');
 document.getElementById('links').appendChild(bra);
 document.getElementById('links').appendChild(brb);
+
 newlinkb = document.createElement('a');
-newlinkb.innerHTML = 'JS Added Link B';
-newlinkb.setAttribute('href', 'somepage.php');
-newlinkb.setAttribute('onclick', 'alert("JS Added Link B"); return false;');
+newlinkb.innerHTML = 'Add JS Link';
+newlinkb.setAttribute('href', 'javascript:void(0);');
+newlinkb.setAttribute('onclick', 'teleporter_add_dynamic_link(); return false;');
 document.getElementById('links').appendChild(newlinkb);
 brc = document.createElement('br');
 brd = document.createElement('br');
 document.getElementById('links').appendChild(brc);
 document.getElementById('links').appendChild(brd);
 
-/* Add jQuery Links */
-if (typeof jQuery !== 'undefined') {
-
+/* Add Dynamic Links */
+function teleporter_add_dynamic_link() {
+	newlink = document.createElement('a');
+	newlink.innerHTML = 'Dynamically Added Link';
+	newlink.href = '?page=a';
+	newlink.setAttribute('class', 'dynamic-link');
+	document.getElementById('links').appendChild(newlink);
+	br = document.createElement('br');
+	document.getElementById('links').appendChild(br);
 }
 </script>
 <?php
