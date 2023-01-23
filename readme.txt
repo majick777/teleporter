@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 6.1
-Stable tag: 1.0.4
+Tested up to: 6.1.1
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,29 +26,31 @@ Teleporter uses fullpage iframe swapping, rather than AJAX. So unlike AJAX Page 
 
 = How do I get started?
 
-Once you have activated the plugin, any internal links on your site will automatically be loaded via page transitions. See the next question for what links are affected.
+Once you have activated the plugin, any internal links on your site will automatically be loaded via page transitions. Visit the plugin settings page to modify the default plugin behaviour.
+
+= How does it work? =
+
+Teleporter loads new content in iframes within the existing window, then uses the Browser History API to keep track of the content that is loaded. It then monitors the `onpopstate` event so that browser forward and back buttons continue to load the desired content, with the added ability to fade between them.
 
 = Which links are affected? =
 
 Any standard `<a>` link on the page that:
 
 1. Does not have a target attribute set.
-2. Does not have an onclick attribute already set.
-3. Does not have a class of `no-transition` or `no-teleporter`.
-4. Does not have an URL starting with `#` or `?`
-5. Does not have an URL starting with Site URL.
+2. Does not have an onclick attribute already explicitly set.
+3. Does not have a class of `no-transition` or `no-teleporter` (or other specified classes.)
+4. Does not have an URL starting with `#` or `?` or `mailto:` or `tel:`
+5. Does not have an URL starting with the current Site URL.
 6. Does not have an URL with a hostname matching the current page.
 7. Does not have an URL containing `/wp-admin/` or `wp-login.php`.
 
 This is a comprehensive attempt to match and transition between internal links only. (If you think there is something missing here please open a Github issue.)
 
-= How is dynamic link content handled? =
+= How are dynamic links handled? =
 
 As of 1.0.4, Teleporter will also handle dynamic link content. That is, links added to the page later. Simply specify the classes of these links on the plugin settings page, and they are then handled with click event delegation (instead of being directly adding to the `a` link.) So for example, if you have a mobile menu that creates links upon expanding it with a `.mobile-link` class, you can add `mobile-link` in the plugin settings. When the mobile menu link is clicked, Teleporter will transition the page as normal. This makes it possible to use Teleporter with frontend builder or frameworks that add their content with javascript.
 
-= How does it work? =
-
-Teleporter loads new content in iframes within the existing window, then uses the Browser History API to keep track of the content that is loaded. It then monitors the `onpopstate` event so that browser forward and back buttons continue to load the desired content, with the added ability to fade between them.
+Similarly, if there are links that you wish to force to not transition for some reason, you can use the setting for ignore link classes in the same way. And, if you need to use selectors other than classes for these links, you can use the filters `teleporter_dynamic_selectors` and `teleporter_ignore_selectors` to add those respectively also.
 
 = Will it break other scripts? =
 
@@ -67,6 +69,20 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.0.7 =
+* Updated: Plugin Panel (1.2.9)
+* Updated: WordQuest Library (1.8.2)
+* Fixed: add extra onclick function for iPhone event bubbling
+* Improved: added checks to not load for admin/previews/editing modes
+
+= 1.0.6 =
+* Added: filter to allow for non-class ignore/dynamic selectors
+* Fixed: dynamic link event bubbling on iPhone (via cursor:pointer)
+* Fixed: method of adding of comment-reply-link ignore class
+
+= 1.0.5 =
+* Hotfix: automatically load dynamic link check
 
 = 1.0.4 =
 * Updated: Plugin Panel (1.2.8)

@@ -1,4 +1,6 @@
-var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['no-transition','no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+if (typeof teleporter == 'undefined') {
+	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+}
 var t_topwin; t_topwin = teleporter_top_window();
 if (typeof t_topwin.t_loading == 'undefined') {t_topwin.t_loading = false;}
 if (typeof t_topwin.t_loaded == 'undefined') {t_topwin.t_loaded = false;}
@@ -299,9 +301,9 @@ function teleporter_skip_link(el) {
 		b = '//'+t_topwin.location.host;
 		if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {skip = false;}
 	}
-	if (!skip && teleporter.ignore.length && (typeof el.classList != 'undefined') && el.classList.length) {
+	if (!skip && teleporter.ignore.length) {
 		for (i in teleporter.ignore) {
-			if (el.classList.contains(teleporter.ignore[i])) {skip = true;}
+			if (el.matches(teleporter.ignore[i])) {skip = true;}
 		}
 	}
 	if (teleporter.debug) {if (!skip) {console.log('Found internal URL: '+u);} }
@@ -363,20 +365,22 @@ function teleporter_add_link_onclick(el) {
 }
 function teleporter_dynamic_link_clicks() {
 	if (!teleporter.dynamic.length) {return;}
-	var dynamic_classes = '';
-	for (i = 0; i < dynamic.length; i++) {
-		if (dynamic_classes != '') {dynamic_classes += ', ';}
-		dynamic_classes += '.'+dynamic[i];
-	}	
-	jQuery('a').on('click', dynamic_classes, function(e) {
+	var dynamic_selectors = '';
+	for (i = 0; i < teleporter.dynamic.length; i++) {
+		if (dynamic_selectors != '') {dynamic_selectors += ', ';}
+		dynamic_selectors += teleporter.dynamic[i];
+	}
+	if (teleporter.debug) {console.log('Dynamic Selectors: '+dynamic_selectors);}
+	jQuery('a').on('click', dynamic_selectors, function(e) {
+		e.stopImmediatePropagation();
+		e.preventDefault();
 		target = jQuery(e.target);
 		if (target.prop('tagName') != 'a') {target = target.closest('a');}
 		if (target.getAttribute('teleporter') == '1') {return;}
 		element = target[0];
 		skip = teleporter_skip_link(element);
 		if (!skip) {
-			e.stopImmediatePropagation();
-			e.preventDefault();
+			if (teleporter.debug) {console.log(target);}
 			return teleporter_transition_page(element);	
 		}
 	});
@@ -387,6 +391,7 @@ if (typeof window.jQuery !== 'undefined') {
 		if (parent.document) {document.getElementsByTagName('body')[0].style.overflow = 'scroll';}
 		teleporter_custom_event('teleporter-check-links', false);
 		teleporter_add_link_events();
+		teleporter_dynamic_link_clicks();
 		teleporter_custom_event('teleporter-links-checked', false);
 		teleporter_transition_check(false, window);
 		teleporter_add_popstate_checker();
