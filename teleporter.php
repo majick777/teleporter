@@ -144,7 +144,8 @@ function teleporter_load_wordquest_helper( $args ) {
 		$wqhelper = dirname( __FILE__ ) . '/wordquest.php';
 		if ( file_exists( $wqhelper ) ) {
 			include $wqhelper;
-			global $wordquestplugins; $slug = $args['slug'];
+			global $wordquestplugins;
+			$slug = $args['slug'];
 			$wordquestplugins[$slug] = $args;
 		}
 	}
@@ -333,11 +334,52 @@ $instance = new teleporter_loader( $settings );
 // === Teleporter ===
 // ------------------
 
+// -----------------------------
+// Check if Admin or Editor Mode
+// -----------------------------
+function teleporter_is_admin_or_editor() {
+
+	// -- admin or preview ---
+	if ( is_admin() ) {
+		return true;
+	}
+	// --- customizer preview or page preview ---
+	if ( is_customize_preview() || isset( $_REQUEST['preview_id'] ) ) {
+		return true;
+	}
+	// --- block editor ---
+	if ( function_exists( 'get_current_screen' ) ) {
+		$current_screen = get_current_screen();
+		if ( method_exists( $current_screen, 'is_block_editor' ) && $current_screen->is_block_editor() ) {
+			return true;
+		}
+	}
+	// --- gutenberg plugin ---
+	if ( function_exists( 'is_gutenberg_page' ) && is_gutenberg_page() ) {
+		return true;
+	}
+	// --- elementor ---
+	if ( ( isset( $_REQUEST['action'] ) && ( 'elementor' == $_REQUEST['action'] ) ) || isset( $_REQUEST['elementor-preview'] ) ) {
+		return true;
+	}
+	// --- beaver builder ---
+	if ( isset( $_REQUEST['fl_builder'] ) || isset( $_REQUEST['fl_builder_preview'] ) ) {
+		return true;
+	}
+	
+	return false;
+}
+
 // --------------------------
 // Enqueue Teleporter Scripts
 // --------------------------
 add_action( 'wp_enqueue_scripts', 'teleporter_enqueue_scripts' );
 function teleporter_enqueue_scripts() {
+
+	// 1.0.7: added double checks to bug out in admin/editing modes
+	if ( teleporter_is_admin_or_editor() ) {
+		return;
+	}
 
 	// --- check settings ---
 	// 1.0.0: added plugin settings
@@ -616,19 +658,32 @@ function teleporter_dynamic_link_iphone_fix() {
 			$dynamic_classes = array( $dynamic_classes );
 		}
 	}
+	echo '<style>';
 	if ( is_array( $dynamic_classes ) && !empty( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
 		// ref: https://gravitydept.com/blog/js-click-event-bubbling-on-ios
-		echo '<style>';
 		foreach ( $dynamic_classes as $i => $dynamic_class ) {
 			if ( $i > 0 ) {
 				echo ',';
 			}
 			echo '.' . esc_html( trim( $dynamic_class ) );
 		}
-		echo ' {cursor: pointer;}';
-		echo '</style>' . "\n";
+		echo ', ';
 	}
-	
+	// 1.0.7: add is-ios class selector in any case
+	echo '.is-ios * {cursor: pointer;}</style>' . "\n";
+
+	// 1.0.7: detect iOS and add onclick function to body children
+	// (an onclick function may be needed 'between body and element')
+	// ref: https://www.quirksmode.org/blog/archives/2014/02/mouse_event_bub.html
+	echo "<script>jQuery(document).ready(function() {
+		isIOS = ['iPhone Simulator','iPad Simulator','iPod Simulator','iPhone','iPad','iPod'].includes(navigator.platform);
+		if (isIOS) {
+			document.querySelector('html').classList.add('is-ios');
+			jQuery('body').children().each(function() {
+				if (!jQuery(this).is('[onclick],script,style,link')) {jQuery(this).attr('onclick','function(){}');}
+			});
+		}
+	});</script>" . "\n";
 }
 
 // --------------------------
