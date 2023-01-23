@@ -71,6 +71,8 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 == Changelog ==
 
 = 1.0.7 =
+* Updated: Plugin Panel (1.2.9)
+* Updated: WordQuest Library (1.8.2)
 * Fixed: add extra onclick function for iPhone event bubbling
 * Improved: added checks to not load for admin/previews/editing modes
 
