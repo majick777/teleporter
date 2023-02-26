@@ -407,7 +407,8 @@ function teleporter_skip_link(el) {
 
 	/* check for an already treated link */
 	/* 1.0.4: added to allow for multiple runs */
-	if (el.getAttribute('teleporter') == '1') {return true;}
+	/* 1.0.8: added extra check for no-teleporter attribute */
+	if ((el.getAttribute('teleporter') == '1') || (el.getAttribute('no-teleporter') == '1')) {return true;}
 
 	/* treat an undefined/empty href as internal */
 	if ((typeof el.href == 'undefined') || (el.href == '')) {return true;}

@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.6
+Version: 1.0.7.1
 Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -598,21 +598,20 @@ function teleporter_localize_settings() {
 
 	// --- ignore WordPress admin links ---
 	// 0.9.6: fix for admin bar links
-	if ( count( $ignore_classes ) > 0 ) {
-		$js .= "document.addEventListener('teleporter-check-links', function(event,params) {";
-		$js .= "ignoreclass = '" . esc_js( $ignore_classes[0] ) . "'; ";
-		if ( is_admin_bar_showing() ) {
-			// --- add ignore class to wp admin bar links ---
-			// (code only added if admin bar will be showing)
-			$js .= "if (document.getElementById('wpadminbar')) {";
-				$js .= "ablinks = document.getElementById('wpadminbar').getElementsByTagName('a'); ";
-				$js .= "for (var i = 0; i < ablinks.length; i++) {";
-					$js .= "if (!ablinks[i].classList.contains(ignoreclass)) {";
-						$js .= "ablinks[i].classList.add(ignoreclass);";
-					$js .= "}";
+	// 1.0.8: use no-teleporter attribute instead of ignore class
+	$js .= "document.addEventListener('teleporter-check-links', function(event,params) {";
+
+		// --- add ignore attribute to wp admin bar links ---
+		$js .= "if (document.getElementById('wpadminbar')) {";
+			$js .= "ablinks = document.getElementById('wpadminbar').getElementsByTagName('a'); ";
+			$js .= "for (var i = 0; i < ablinks.length; i++) {";
+				// 1.0.8: use no-teleporter attribute instead of ignore class
+				$js .= "if (ablinks[i].getAttribute('no-teleporter') != '1') {";
+					$js .= "ablinks[i].setAttribute('no-teleporter','1');";
 				$js .= "}";
-			$js .= "} ";
-		}
+			$js .= "}";
+		$js .= "} ";
+
 		// --- links to WordPress admin area ---
 		// 1.0.0: added href attribute typeof check
 		// 1.0.0: added check for wp-login.php in URL
@@ -621,15 +620,15 @@ function teleporter_localize_settings() {
 			$js .= "link = adlinks[i]; ";
 			$js .= "if (typeof link.href != 'undefined') {";
 				$js .= "if ((link.href.indexOf('/wp-admin/') > -1) || (link.href.indexOf('wp-login.php') > -1)) {";
-					$js .= "if (link.classList.contains(ignoreclass)) {";
-						$js .= "link.classList.add(ignoreclass);";
+					// 1.0.8: use no-teleporter attribute instead of ignore class
+					$js .= "if (link.getAttribute('no-teleporter') != '1') {";
+						$js .= "link.setAttribute('no-teleporter','1');";
 					$js .= "}";
 				$js .= "}";
 			$js .= "}";
 		$js .= "}";
 
-		$js .= "});" . "\n";
-	}
+	$js .= "});" . "\n";
 
 	// --- filter extra script and add to teleporter ---
 	$js = apply_filters( 'teleporter_script_settings', $js );

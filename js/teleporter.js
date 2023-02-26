@@ -288,7 +288,7 @@ function teleporter_add_iframe(src) {
 	return iframe;
 }
 function teleporter_skip_link(el) {
-	if (el.getAttribute('teleporter') == '1') {return true;}
+	if ((el.getAttribute('teleporter') == '1') || (el.getAttribute('no-teleporter') == '1')) {return true;}
 	if ((typeof el.href == 'undefined') || (el.href == '')) {return true;}
 	if ((typeof el.target != 'undefined') && (el.target != null) && (el.target != '_self') && (el.target != '')) {return true;}
 	if ((typeof el.onclick != 'undefined') && (el.onclick != null) && (el.onclick != '')) {return true;}
