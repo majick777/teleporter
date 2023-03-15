@@ -29,10 +29,15 @@ function teleporter_transition_page(link) {
 		/* if (teleporter.debug) {console.log(t_topwin.stateurls);} */
 		stateurls = t_topwin.stateurls;
 		for (i in stateurls) {
+			/* if (teleporter.debug) {console.log(link.href+' - '+i+': '+stateurls[i]);} */
 			if (stateurls[i] == link.href) {
-				if (i == t_topwin.currentstate) {return false;}
+				if (i == t_topwin.currentstate) {
+					/* if (teleporter.debug) {console.log('Keeping Current State ('+t_topwin.currentstate+')');} */
+					return false;
+				}
 				/* if (teleporter.debug) {console.log('Switching to Existing State: '+i);} */
-				teleporter_switch_state(i);
+				switchstate = teleporter_switch_state(i);
+				if (!switchstate) {return false;}
 				title = t_topwin.statetitles[i];
 				var obj = {id: i, title: title, url: link.href};
 				t_topwin.t_pushing = true;
@@ -43,7 +48,6 @@ function teleporter_transition_page(link) {
 					else if (t_topwin.history) {console.log(t_topwin.history.state);}
 				} */
 				t_topwin.t_pushing = false;
-				t_topwin.currentstate = i;
 				return false;
 			}
 		}
@@ -114,21 +118,28 @@ function teleporter_transition_check(url, win) {
 /* --- Push State --- */
 /* 1.0.0: separated function to allow for timeout usage */
 function teleporter_push_state(href, win) {
+		/* if (teleporter.debug) {console.log('Current State: '+t_topwin.currentstate);} */
 		titletag = win.document.getElementsByTagName('title');
 		if (titletag.length) {title = titletag[0].innerHTML;} else {title = '';}
-		if (typeof t_topwin.statecount === 'undefined') {
-			t_topwin.statecount = 0; t_topwin.windowstateid = 0; stateid = 0;
+		if (typeof t_topwin.stateurls === 'undefined') {
+			t_topwin.windowstateid = 0; stateid = 0;
 			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
 			stateurls = []; stateurls[0] = href; t_topwin.stateurls = stateurls;
 			statetitles = []; statetitles[0] = title; t_topwin.statetitles = statetitles;
 		} else {
-			t_topwin.statecount++; stateid = t_topwin.statecount;
-			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
-			if ((t_topwin != win.self) && (typeof win.windowstateid == 'undefined') ) {
-				win.windowstateid = stateid;
-				/* if (teleporter.debug) {console.log(t_topwin.stateurls);} */
-				t_topwin.stateurls[stateid] = href;
-				t_topwin.statetitles[stateid] = title;
+			found = false;
+			for (i = 0; i < t_topwin.stateurls.length; i++) {
+				if (t_topwin.stateurls[i] == href) {found = true; stateid = i; title = t_topwin.statetitles[i];}
+			}
+			if (!found) {
+				stateid = t_topwin.stateurls.length;
+				/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+				if ((t_topwin != win.self) && (typeof win.windowstateid == 'undefined') ) {
+					win.windowstateid = stateid;
+					/* if (teleporter.debug) {console.log(t_topwin.stateurls);} */
+					t_topwin.stateurls[stateid] = href;
+					t_topwin.statetitles[stateid] = title;
+				}
 			}
 		}
 		/* if (teleporter.debug) {
@@ -148,6 +159,7 @@ function teleporter_push_state(href, win) {
 		} */
 
 		t_topwin.currentstate = stateid;
+		/* if (teleporter.debug) {console.log('Set Current State: '+t_topwin.currentstate);} */
 		t_topwin.t_loaded = t_topwin.t_loading; t_topwin.t_loading = false;
 		return stateid;
 }
@@ -235,7 +247,7 @@ function teleporter_add_popstate_checker() {
 /* --- Popstate Event Checker --- */
 function teleporter_popstate_checker(event) {
 
-	/* ignore inital popstate that some browsers fire on page load */
+	/* ignore initial popstate that some browsers fire on page load */
 	/* ref: https://stackoverflow.com/a/17176274/5240159 */
 	t_topwin.initialpop = !t_topwin.t_poppedstate && (window.location.href == t_topwin.t_initialurl);
 	t_topwin.t_poppedstate = true; if (t_topwin.initialpop) {return;}
@@ -256,7 +268,7 @@ function teleporter_popstate_checker(event) {
 
 	/* get event history state */
 	stateid = null;
-	if (event.state) {console.log('Event State'); console.log(event);}
+	/* if (teleporter.debug) {if (event.state) {console.log('History Event State:'); console.log(event);} } */
 	if  (typeof t_topwin.History != 'undefined') {
 		state = t_topwin.History.getState();
 		if (state.data.id) {stateid = state.data.id;}
@@ -308,7 +320,8 @@ function teleporter_popstate_checker(event) {
 	/* if (teleporter.debug) {console.log('Switching to State '+stateid);} */
 	if (event.preventDefault) {event.preventDefault();}
 	if (event.stopImmediatePropagation) {event.stopImmediatePropagation();}
-	teleporter_switch_state(stateid);
+	switchstate = teleporter_switch_state(stateid);
+	if (!switchstate) {return false;}
 }
 
 /* --- Switch Page State --- */
@@ -316,10 +329,12 @@ function teleporter_switch_state(stateid) {
 
 	/* check conditions */
 	if (typeof t_topwin.windowstateid == 'undefined') {return;}
-	if (typeof t_topwin.currentstate != 'undefined') {currentstate = t_topwin.currentstate;}
-	else {currentstate = 0; t_topwin.currentstate = 0;}
-	if (stateid == currentstate) {return;}
-	/* if (teleporter.debug) {console.log('Switching to State ID: '+stateid+' (Current State: '+currentstate+')');} */
+	if (typeof t_topwin.currentstate == 'undefined') {t_topwin.currentstate = 0;}
+	if (stateid == t_topwin.currentstate) {
+		/* if (teleporter.debug) {console.log('Keeping Existing State ('+stateid+')');} */
+		return false;
+	}
+	/* if (teleporter.debug) {console.log('Switching to State ID: '+stateid+' (Current State: '+t_topwin.currentstate+')');} */
 	teleporter_custom_event('teleporter-switch-state', {stateid: stateid});
 
 	/* get all iframes */
@@ -328,16 +343,35 @@ function teleporter_switch_state(stateid) {
 	iframe = false;
 	for (i = 0; i < iframes.length; i++) {
 		if (iframes[i].id == teleporter.iframe+'-'+stateid) {
+			/* if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+i); console.log(iframe);} */
 			iframe = iframes[i]; j = i;
-			/* if (teleporter.debug) {console.log('Matched State '+stateid+' to Iframe '+j); console.log(iframe);} */
+			win = iframe.contentWindow;
+			/* 1.0.8: maybe refresh window contents */
+			doc = iframe.contentDocument || iframe.contentWindow.document;
+			body = doc.getElementsByTagName('body')[0];
+			if (body.hasAttribute('teleporter-refresh')) {
+				/* if (teleporter.debug) {console.log('Reloading iframe '+i+': '+iframe.src);} */
+				src = iframe.src; iframe.src = 'javascript:void(0);'; iframe.src = src;
+			}
 		}
 	}
 
 	if (t_topwin.windowstateid == stateid) {
 
+		win = window.top;
+		body = t_topwin.document.getElementsByTagName('body')[0];
+
+		/* 1.0.8: maybe refresh top window contents */
+		if (body.hasAttribute('teleporter-refresh')) {
+			href = stateurls[stateid];
+			/* if (teleporter.debug) {console.log('Reloading Top Window: '+href);} */
+			if (t_topwin.location.href == href) {t_topwin.location.reload();}
+			else {t_topwin.location.href = href;}
+			return false;
+		}
+
 		/* restore top window view */
 		/* if (teleporter.debug) {console.log('Restoring First Page State');} */
-		body = t_topwin.document.getElementsByTagName('body')[0];
 		body.style.margin = t_topwin.bodymargin;
 		body.style.padding = t_topwin.bodypadding;
 		body.style.overflow = 'scroll';
@@ -349,7 +383,6 @@ function teleporter_switch_state(stateid) {
 				} else {iframes[i].style.display = 'none';}
 			}
 		}
-		t_topwin.currentstate = 0;
 
 	} else if (iframe) {
 
@@ -382,6 +415,12 @@ function teleporter_switch_state(stateid) {
 	/* set top window state and title */
 	t_topwin.document.title = t_topwin.statetitles[stateid];
 	t_topwin.currentstate = stateid;
+	/* if (teleporter.debug) {console.log('New Current State: '+t_topwin.currentstate);} */
+
+	/* 1.0.8: push new state */
+	href = t_topwin.stateurls[stateid];
+	teleporter_push_state(href, win);
+
 	teleporter_custom_event('teleporter-transitioned', {stateid: stateid});
 }
 

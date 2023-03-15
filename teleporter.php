@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.7.1
+Version: 1.0.7.2
 Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -249,6 +249,16 @@ $options = array(
 		'label'   => __( 'Dynamic Link Classes', 'teleporter' ),
 		'default' => '',
 		'helper'  => __( 'Dynamic links are those added to the page after loading. Add their classes here include them in transitions. (Comma separated list of classes to include.)', 'teleporter' ),
+		'section' => 'advanced',
+	),
+
+	// --- Always Refresh Pages ---
+	// 1.0.8: added always refresh pages option
+	'always_refresh' => array(
+		'type'    => 'csv',
+		'label'   => __( 'Always Refresh Pages', 'teleporter' ),
+		'default' => 'cart,checkout',
+		'helper'  => __( 'Pages to force refresh when clicked, instead of switching to if previously loaded. (Comma separated list of page slugs or IDs.)', 'teleporter' ),
 		'section' => 'advanced',
 	),
 
@@ -594,7 +604,7 @@ function teleporter_localize_settings() {
 		$js .= "iframe: " . $iframe . ", ";
 		$js .= "loading: " . $loading . ", ";
 		$js .= "siteurl: " . $siteurl;
-	$js .= "}" . PHP_EOL;
+	$js .= "}" . "\n";
 
 	// --- ignore WordPress admin links ---
 	// 0.9.6: fix for admin bar links
@@ -634,7 +644,24 @@ function teleporter_localize_settings() {
 	$js = apply_filters( 'teleporter_script_settings', $js );
 	wp_add_inline_script( 'teleporter', $js );
 
-	// 1.0.6: added to fix dunamic links on iphones
+	// --- check for always refresh page ---
+	// 1.0.8: added javascript body refresh attribute flag
+	$teleporter_refresh = false;
+	if ( is_singular() ) {
+		global $post;
+		$always_refresh = trim( teleporter_get_setting( 'always_refresh' ) );
+		$always_refresh = strstr( $always_refresh, ',' ) ? explode( ',', $always_refresh ) : array( $always_refresh );
+		if ( in_array( $post->post_name, $always_refresh ) || in_array( $post->ID, $always_refresh ) ) {
+			$teleporter_refresh = true;
+		}
+	}
+	$teleporter_refresh = apply_filters( 'teleporter_refresh', $teleporter_refresh );
+	if ( $teleporter_refresh ) {
+		$js .= "window.document.getElementsByTagName('body')[0].setAttribute('teleporter-refresh','1');";
+		wp_add_inline_script( 'teleporter', $js );
+	}
+
+	// 1.0.6: added to fix dynamic links on iphones
 	if ( is_array( $dynamic_classes ) && !empty( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
 		add_action( 'wp_footer', 'teleporter_dynamic_link_iphone_fix' );
 	}
@@ -762,7 +789,7 @@ function teleporter_dynamic_styles() {
 	}
 
 	// --- output page transition iframe ---
-	// note: actual iframes are added dynamically via script
+	// note: actual iframes are now added dynamically via script
 	// ref: https://stackoverflow.com/questions/3982422/full-screen-iframe
 	// echo '<iframe src="javascript:void(0);" id="' . esc_attr( $iframe ) . '" name="' . esc_attr( $iframe ) . '" width="100%" height="100%" frameborder="0" scrolling="auto" allowfullscreen="true" style="display:none;"></iframe>';
 
@@ -776,32 +803,34 @@ function teleporter_dynamic_styles() {
 	echo "<style>." . esc_attr( $iframe ) . " {";
 		echo "background: #FFF; overflow: hidden; z-index: 999999; ";
 		echo "position: fixed; border: none; margin: 0; padding: 0; top: 0; left: 0; bottom: 0; right: 0;";
-	echo "}" . PHP_EOL;
+	echo "}" . "\n";
 
 	// --- loading bar styles ---
 	// 1.0.0: add check for non-zero page fade time and loading bar position
 	if ( ( $page_fade_time > 0 ) && ( 'none' != $loading_bar_position ) ) {
 		echo "#" . esc_attr( $loading ) . " {position: fixed; left: 0; right: 0; margin: 0; padding: 0; ";
 			echo "border: none; height: 7px; width: 0; max-width: 5000px; overflow: hidden; ";
-			echo "opacity: 0; transition: none; background: " . $loading_bar_color . ";";
+			// 1.0.8: added missing esc_attr wrapper on loading bar color value
+			echo "opacity: 0; transition: none; background: " . esc_attr( $loading_bar_color ) . ";";
 		if ( 'top' == $loading_bar_position ) {
 			echo " top: 0;";
 		} else {
 			echo " bottom: 0;";
 		}
-		echo "}" . PHP_EOL;
+		echo "}" . "\n";
 
 		// 1.0.0: use page load timeout for loading bar animation
+		// 1.0.8: added missing esc_attr wrapper on timeout value
 		$timeout = (string) round( $page_load_timeout / 1000, 3 );
-		echo "#" . esc_attr( $loading ) . ".loading {transition: width " . $timeout . "s ease-in-out; width: 100%; opacity: 1;}" . PHP_EOL;
-		echo "#" . esc_attr( $loading ) . ".reset {transition: none; width: 0; opacity: 0;}" . PHP_EOL;
+		echo "#" . esc_attr( $loading ) . ".loading {transition: width " . esc_attr( $timeout ). "s ease-in-out; width: 100%; opacity: 1;}" . "\n";
+		echo "#" . esc_attr( $loading ) . ".reset {transition: none; width: 0; opacity: 0;}" . "\n";
 
 		// --- maybe shift top position for admin bar ---
 		if ( 'none' != $loading_bar_position ) {
-			echo "body.admin-bar #" . esc_attr( $loading ) . " {top: 32px;}" . PHP_EOL;
+			echo "body.admin-bar #" . esc_attr( $loading ) . " {top: 32px;}" . "\n";
 			echo "@media screen and (max-width: 782px) {";
 				echo "body.admin-bar #" . esc_attr( $loading ) . "{top: 46px;}";
-			echo "}" . PHP_EOL;
+			echo "}" . "\n";
 		}
 	}
 
