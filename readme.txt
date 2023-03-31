@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 6.1.1
-Stable tag: 1.0.7
+Tested up to: 6.2
+Stable tag: 1.0.8
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,13 +36,15 @@ Teleporter loads new content in iframes within the existing window, then uses th
 
 Any standard `<a>` link on the page that:
 
-1. Does not have a target attribute set.
+1. Does not have a link target attribute set.
 2. Does not have an onclick attribute already explicitly set.
 3. Does not have a class of `no-transition` or `no-teleporter` (or other specified classes.)
-4. Does not have an URL starting with `#` or `?` or `mailto:` or `tel:`
+4. Does not have an URL starting with `javascript` or `#` or `?` or `mailto:` or `tel:`
 5. Does not have an URL starting with the current Site URL.
 6. Does not have an URL with a hostname matching the current page.
 7. Does not have an URL containing `/wp-admin/` or `wp-login.php`.
+8. Does not have an attribute of `no-teleporter="1"`.
+9. Is not in the Admin Bar (any link within the `#wpadminbar` section.)
 
 This is a comprehensive attempt to match and transition between internal links only. (If you think there is something missing here please open a Github issue.)
 
@@ -51,6 +53,16 @@ This is a comprehensive attempt to match and transition between internal links o
 As of 1.0.4, Teleporter will also handle dynamic link content. That is, links added to the page later. Simply specify the classes of these links on the plugin settings page, and they are then handled with click event delegation (instead of being directly adding to the `a` link.) So for example, if you have a mobile menu that creates links upon expanding it with a `.mobile-link` class, you can add `mobile-link` in the plugin settings. When the mobile menu link is clicked, Teleporter will transition the page as normal. This makes it possible to use Teleporter with frontend builder or frameworks that add their content with javascript.
 
 Similarly, if there are links that you wish to force to not transition for some reason, you can use the setting for ignore link classes in the same way. And, if you need to use selectors other than classes for these links, you can use the filters `teleporter_dynamic_selectors` and `teleporter_ignore_selectors` to add those respectively also.
+
+= Can I ensure fresh copies of certain pages are loaded? =
+
+As of 1.0.8, Teleporter includes a setting where you can specify pages (by slug or ID) to always refresh when clicked they are clicked through to.
+
+This means that if a page already has been loaded in a Teleporter page session, and is switched away from, when it is switched back to, it is reloaded instead of simply switched back to.
+
+Intended for use with cart or checkout pages. For example, if a customer visits their cart, then navigates away and adds another product, then switches back to the cart, the cart should be refreshed to show the new contents.
+
+Note if there are other non-page URLS (eg. archives) where you want to force refresh also you can set the `teleporter_refresh` filter to true for that condition.
 
 = Will it break other scripts? =
 
@@ -69,6 +81,10 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.0.8 =
+* Added: setting for pages to always refresh (plus filter)
+* Fixed: history pop state mismatch after multiple clicks
 
 = 1.0.7 =
 * Updated: Plugin Panel (1.2.9)
