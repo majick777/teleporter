@@ -644,17 +644,26 @@ function teleporter_localize_settings() {
 	$js = apply_filters( 'teleporter_script_settings', $js );
 	wp_add_inline_script( 'teleporter', $js );
 
-	// --- check for always refresh page ---
+	// --- check for always refresh pages ---
 	// 1.0.8: added javascript body refresh attribute flag
 	$teleporter_refresh = false;
+	$always_refresh = trim( teleporter_get_setting( 'always_refresh' ) );
+	$always_refresh = strstr( $always_refresh, ',' ) ? explode( ',', $always_refresh ) : array( $always_refresh );
 	if ( is_singular() ) {
 		global $post;
-		$always_refresh = trim( teleporter_get_setting( 'always_refresh' ) );
-		$always_refresh = strstr( $always_refresh, ',' ) ? explode( ',', $always_refresh ) : array( $always_refresh );
 		if ( in_array( $post->post_name, $always_refresh ) || in_array( $post->ID, $always_refresh ) ) {
 			$teleporter_refresh = true;
 		}
 	}
+	// 1.0.9: allow for partial URL path matching (containing '/')
+	if ( !$teleporter_refresh ) {
+		foreach ( $always_refresh as $page ) {
+			if ( strstr( $page, '/' ) && strstr( $_SERVER['SCRIPT_NAME'], $page ) ) {
+				$teleporter_refresh = true;
+			}
+		}
+	}
+		
 	$teleporter_refresh = apply_filters( 'teleporter_refresh', $teleporter_refresh );
 	if ( $teleporter_refresh ) {
 		$js .= "window.document.getElementsByTagName('body')[0].setAttribute('teleporter-refresh','1');";

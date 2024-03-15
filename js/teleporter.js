@@ -1,5 +1,5 @@
 if (typeof teleporter == 'undefined') {
-	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': '', refresh: [] };
 }
 var t_topwin; t_topwin = teleporter_top_window();
 if (typeof t_topwin.t_loading == 'undefined') {t_topwin.t_loading = false;}
