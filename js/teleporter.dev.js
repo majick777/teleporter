@@ -6,7 +6,7 @@
 /* 1.0.0: added pageload timeout setting */
 /* 1.0.6: added existing definition check */
 if (typeof teleporter == 'undefined') {
-	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': ''};
+	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': '', refresh: [] };
 }
 
 /* --- Set Initial Variables --- */

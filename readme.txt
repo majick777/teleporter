@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 6.2
-Stable tag: 1.0.8
+Tested up to: 6.4.2
+Stable tag: 1.0.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
