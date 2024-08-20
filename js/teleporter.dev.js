@@ -14,6 +14,7 @@ var t_topwin; t_topwin = teleporter_top_window();
 if (typeof t_topwin.t_loading == 'undefined') {t_topwin.t_loading = false;}
 if (typeof t_topwin.t_loaded == 'undefined') {t_topwin.t_loaded = false;}
 if (typeof t_topwin.t_pushing == 'undefined') {t_topwin.t_pushing = false;}
+if (typeof t_topwin.t_cancel == 'undefined') {t_topwin.t_cancel = false;}
 if (typeof t_topwin.t_initialurl == 'undefined') {t_topwin.t_initialurl = window.location.href;}
 if (typeof t_topwin.t_poppedstate == 'undefined') {
 	if  (typeof t_topwin.History == 'function') {t_topwin.t_poppedstate = t_topwin.History.getState();}
@@ -23,6 +24,7 @@ if (typeof t_topwin.t_poppedstate == 'undefined') {
 /* --- Transition Page --- */
 function teleporter_transition_page(link) {
 	if ((typeof History != 'function') && !window.history) {return true;}
+	t_topwin.t_cancel = false; /* reset cancel state */
 
 	/* maybe load existing state */
 	if (typeof t_topwin.stateurls !== 'undefined') {
@@ -66,6 +68,7 @@ function teleporter_transition_page(link) {
 /* --- Transition Check --- */
 function teleporter_transition_check(url, win) {
 
+	if (t_topwin.t_cancel) {return;}
 	href = null; iframe = null; topdoc = t_topwin.document;
 	if (t_topwin != win.self) {
 		/* 1.0.0: use here topdoc directly */
@@ -458,6 +461,14 @@ function teleporter_skip_link(el) {
 	/* skip links that already have an onclick sttribute */
 	if ((typeof el.onclick != 'undefined') && (el.onclick != null) && (el.onclick != '')) {return true;}
 
+	/* 1.1.0: skip links with an existing link click event */
+	if (typeof t_click_events != 'undefined') {
+		for (i in t_click_events) { if (t_click_events[i].element == el) {return true;} }
+	}
+	
+	/* 1.1.0: skip Elementor lightbox links */
+	if (el.hasAttribute('data-elementor-open-lightbox') && (el.getAttribute('data-elementor-open-lightbox') == 'yes')) {return true;}
+
 	/* set href shortname */
 	u = el.href; skip = true;
 
@@ -515,15 +526,20 @@ function teleporter_get_window_parent(win) {
 
 /* --- Add Link Click Events --- */
 function teleporter_add_link_events() {
+
+	/* 1.1.0: get all a tag click events */
+	if (typeof findEventHandlers != 'undefined') {
+		var t_click_events = findEventHandlers('click','a');
+	}
 	jQuery('a').each(function() {
 		/* 1.0.0: use standard link checking function */
 		el = jQuery(this)[0];
 		skip = teleporter_skip_link(el);
 		if (!skip) {
-			/* TODO: also check for click events via findHandlerJS ? */
 			/* 1.0.4: ignore events with existing click handler */
-			ev = jQuery._data(el, 'events');
-			if (ev && ev.click && teleporter.debug) {console.log(ev.click);}
+			/* ev = jQuery._data(el, 'events');
+			if (ev && ev.click && teleporter.debug) {console.log(ev.click);} */
+			/* 1.1.0: click event handlers now checked in teleporter_skip_link */
 			el.setAttribute('teleporter', '1');
 			/* 1.0.4: add event listener to append to existing events */
 			teleporter_add_link_event(el);
@@ -550,11 +566,10 @@ function teleporter_add_link_onclicks() {
 		/* 1.0.0: use standard link checking function */
 		skip = teleporter_skip_link(alinks[i]);
 		if (!skip) {
-			/* TODO: check for click events via findHandlerJS ? */
 			alinks[i].setAttribute('teleporter', '1');
 			teleporter_add_link_onclick(alinks[i]);
 			
-			/* TODO: could find parent a tag if not clicked element
+			/* TODO: could find parent a tag if not clicked element ? */
 			/* alinks[i].addEventListener('click', function(e) {
 				e.stopImmediatePropagation();
 				e.preventDefault();
@@ -566,6 +581,7 @@ function teleporter_add_link_onclicks() {
 
 /* --- Add Link Onclick Attribute --- */
 function teleporter_add_link_onclick(el) {
+	/* TODO: set click event instead of attribute? */
 	el.setAttribute('onclick', 'return teleporter_transition_page(this);');
 }
 
@@ -695,3 +711,87 @@ function teleporter_custom_event(name, detail) {
 	CustomEvent.prototype = window.Event.prototype;
 	window.CustomEvent = CustomEvent;
 })();
+
+/* --- Detect Escape Key Press --- */
+/* ref: https://stackoverflow.com/a/64446856 */
+document.addEventListener('keydown', (event) => {
+    if (t_topwin.t_loading && (event.key === 'Escape')) {
+        const isNotCombinedKey = !(event.ctrlKey || event.altKey || event.shiftKey);
+        if (isNotCombinedKey) {
+            if (teleporter.debug) {console.log('Cancelling Page Transition.');}
+			t_topwin.t_cancel = true; /* cancel transition check */
+			t_topwin.t_loading = false; /* cancels loader timeout */
+			teleporter_hide_loading();
+        }
+    }
+});
+
+/* --- Find Event Handlers --- */
+/* ref: https://github.com/ruidfigueiredo/findHandlersJS */
+/* 1.1.0: added here to avoid need to load separately */
+if (typeof jQuery != 'undefined') {
+ var findEventHandlers = function (eventType, jqSelector) {
+    var results = [];
+    var $ = jQuery;
+
+    var arrayIntersection = function (array1, array2) {
+        return $(array1).filter(function (index, element) {
+            return $.inArray(element, $(array2)) !== -1;
+        });
+    };
+
+    var haveCommonElements = function (array1, array2) {
+        return arrayIntersection(array1, array2).length !== 0;
+    };
+
+
+    var addEventHandlerInfo = function (element, event, $elementsCovered) {
+        var extendedEvent = event;
+        if ($elementsCovered !== void 0 && $elementsCovered !== null) {
+            $.extend(extendedEvent, { targets: $elementsCovered.toArray() });
+        }
+        var eventInfo;
+        var eventsInfo = $.grep(results, function (evInfo, index) {
+            return element === evInfo.element;
+        });
+
+        if (eventsInfo.length === 0) {
+            eventInfo = {
+                element: element,
+                events: [extendedEvent]
+            };
+            results.push(eventInfo);
+        } else {
+            eventInfo = eventsInfo[0];
+            eventInfo.events.push(extendedEvent);
+        }
+    };
+
+
+    var $elementsToWatch = $(jqSelector);
+    if (jqSelector === "*") /* does not include document and we might be interested in handlers registered there */
+        $elementsToWatch = $elementsToWatch.add(document); 
+    var $allElements = $("*").add(document);
+
+    $.each($allElements, function (elementIndex, element) {
+        var allElementEvents = $._data(element, "events");
+        if (allElementEvents !== void 0 && allElementEvents[eventType] !== void 0) {
+            var eventContainer = allElementEvents[eventType];
+            $.each(eventContainer, function(eventIndex, event){
+                var isDelegateEvent = event.selector !== void 0 && event.selector !== null;
+                var $elementsCovered;
+                if (isDelegateEvent) {
+                    $elementsCovered = $(event.selector, element); /* only look at children of the element, since those are the only ones the handler covers */
+                } else {
+                    $elementsCovered = $(element); /* just itself */
+                }
+                if (haveCommonElements($elementsCovered, $elementsToWatch)) {
+                    addEventHandlerInfo(element, event, $elementsCovered);
+                }
+            });
+        }
+    });
+
+    return results;
+ };
+}

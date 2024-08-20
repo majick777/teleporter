@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.0.8
+Version: 1.1.0
 Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -40,7 +40,7 @@ if ( !defined( 'ABSPATH' ) ) {
 
 // Development TODOs
 // -----------------
-// - check for event handlers on a link tags z
+// - check for existing event handlers on <a> link tags
 
 
 // --------------------------------
@@ -234,10 +234,11 @@ $options = array(
 	// === Advanced ===
 
 	// --- Ignore Link Classes ---
+	// 1.1.0: added thickbox to default ignore classes
 	'ignore_link_classes' => array(
 		'type'    => 'csv',
 		'label'   => __( 'Ignore Link Classes', 'teleporter' ),
-		'default' => 'no-teleporter,no-transition',
+		'default' => 'no-teleporter,no-transition,thickbox,wplightbox',
 		'helper'  => __( 'Any links with these classes will not be transitioned. (Comma separated list of classes to ignore.)', 'teleporter' ),
 		'section' => 'advanced',
 	),
@@ -409,6 +410,7 @@ function teleporter_enqueue_scripts() {
 	// ref: http://findhandlersjsexample.azurewebsites.net/
 	// ref: https://stackoverflow.com/questions/446892/how-to-find-event-listeners-on-a-dom-node-when-debugging-or-from-the-javascript/22841712#22841712
 	// 1.0.0: disabled event handler script until implemented
+	// 1.1.0: moved find event handler script inside teleporter.js
 	// $event_handlers_url = plugins_url( 'js/findEventHandlers.js', __FILE__ );
 	// $version = filemtime( dirname( __FILE__ ) . '/js/findEventHandlers.js' );
 	// wp_enqueue_script( 'find-event-handlers', $event_handlers_url, array(), $version, false );
@@ -444,6 +446,8 @@ function teleporter_enqueue_scripts() {
 
 	if ( $teleporter_debug || isset( $_REQUEST['teleporter-debug'] ) ) {
 		echo '<span style="display:none;">Teleporter Script Enqueued: ' . $teleporter_url . '</span>';
+		$settings = teleporter_get_settings();
+		echo '<span style="display:none;">Teleporter Settings: ' . print_r( $settings, true ) . '</span>';
 	}
 
 	// --- localize script settings ---
@@ -517,7 +521,20 @@ function teleporter_localize_settings() {
 			if ( strlen( $ignore ) > 1 ) {
 				$ignore .= ',';
 			}
-			$ignore .= "'" . esc_js( trim( $ignore_selector ) ) . "'";
+			// 1.1.0: fix to not escape possible > in selector
+			if ( strstr( $ignore_selector, '>' ) ) {
+				$parts = explode( '>', trim( $ignore_selector ) );
+				$ignore .= "'";
+				foreach( $parts as $i => $part ) {
+					$ignore .= esc_js( $part );
+					if ( ( $i + 1 ) < count( $parts ) ) {
+						$ignore .= '>';
+					}
+				}
+				$ignore .= "'";
+			} else {
+				$ignore .= "'" . esc_js( trim( $ignore_selector ) ) . "'";
+			}
 		}
 	}
 	$ignore .= ']';
@@ -738,6 +755,19 @@ function teleporter_ignore_comment_reply_link_classes( $classes ) {
 	}
 	
 	return $classes;
+}
+
+// --------------------------------------------
+// Ignore Beaver Builder Gallery Lightbox Links
+// --------------------------------------------
+add_filter( 'teleporter_ignore_selectors', 'teleporter_ignore_bb_gallery_lightbox_links' );
+function teleporter_ignore_bb_gallery_lightbox_links( $selectors ) {
+	if ( '' == $selectors ) {
+		$selectors = '.fl-photo-content > a';
+	} else {
+		$selectors .= ',.fl-photo-content > a';
+	}
+	return $selectors;
 }
 
 // -----------------------
