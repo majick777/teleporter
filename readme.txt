@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 6.4.2
-Stable tag: 1.0.9
+Tested up to: 6.6.1
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,7 @@ Any standard `<a>` link on the page that:
 7. Does not have an URL containing `/wp-admin/` or `wp-login.php`.
 8. Does not have an attribute of `no-teleporter="1"`.
 9. Is not in the Admin Bar (any link within the `#wpadminbar` section.)
+10. Does not have a `click` event attached to it. (added in 1.1.0)
 
 This is a comprehensive attempt to match and transition between internal links only. (If you think there is something missing here please open a Github issue.)
 
@@ -81,6 +82,17 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.1.0 =
+* Added: catch and cancel transition on Escape key press!
+* Added: skip links that already have a click event attached
+* Added: thickbox and wplightbox to default ignore classes
+* Added: skip Elementor lightbox links (via link attribute)
+* Added: skip Beaver Builder gallery lightbox links (via selector)
+
+= 1.0.9 =
+* Updated: Plugin Panel (1.3.0)
+* Improved: allow for partial URL match in always refresh links
 
 = 1.0.8 =
 * Added: setting for pages to always refresh (plus filter)
