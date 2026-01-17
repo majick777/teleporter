@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.1.0
+Version: 1.1.1
 Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -32,8 +32,8 @@ if ( !defined( 'ABSPATH' ) ) {
 // - Localize Script Settings
 // - Dynamic Link iPhone Fix
 // - Add History API Support
-// - Add Teleporter Styles
-// - Minify Development Script
+// - Add Teleporter Dynamic Styles
+// - Minify from Development Script
 // - Link Test Shortcode
 // --- Close Plugin Loader Wrapper
 // --- Add Plugin Loader Action
