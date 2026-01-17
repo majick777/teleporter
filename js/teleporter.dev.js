@@ -547,6 +547,32 @@ function teleporter_add_link_events() {
 	});
 }
 
+/* --- Add Links within Element by ID --- */
+/* 1.1.1: added for easy updating on AJAX loads */
+function teleporter_add_links_in_element(el_id) {
+	jQuery('#'+el_id+' a').each(function() {
+		el = jQuery(this)[0];
+		skip = teleporter_skip_link(el);
+		if (!skip) {
+			el.setAttribute('teleporter', '1');
+			teleporter_add_link_event(el);
+		}
+	});
+}
+
+/* --- Add Links to Elements within Class --- */
+/* 1.1.1: added for easy updating on AJAX loads */
+function teleporter_add_links_in_class(classname) {
+	jQuery('.'+classname+' a').each(function() {
+		el = jQuery(this)[0];
+		skip = teleporter_skip_link(el);
+		if (!skip) {
+			el.setAttribute('teleporter', '1');
+			teleporter_add_link_event(el);
+		}
+	});
+}
+	
 /* --- Add Link Click Event --- */
 function teleporter_add_link_event(el) {
 	el.addEventListener('click', function(e) {

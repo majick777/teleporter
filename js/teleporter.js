@@ -380,6 +380,26 @@ function teleporter_add_link_events() {
 		}
 	});
 }
+function teleporter_add_links_in_element(el_id) {
+	jQuery('#'+el_id+' a').each(function() {
+		el = jQuery(this)[0];
+		skip = teleporter_skip_link(el);
+		if (!skip) {
+			el.setAttribute('teleporter', '1');
+			teleporter_add_link_event(el);
+		}
+	});
+}
+function teleporter_add_links_in_class(classname) {
+	jQuery('.'+classname+' a').each(function() {
+		el = jQuery(this)[0];
+		skip = teleporter_skip_link(el);
+		if (!skip) {
+			el.setAttribute('teleporter', '1');
+			teleporter_add_link_event(el);
+		}
+	});
+}
 function teleporter_add_link_event(el) {
 	el.addEventListener('click', function(e) {
 		e.stopImmediatePropagation();
