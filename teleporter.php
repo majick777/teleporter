@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.1.1
+Version: 1.1.2
 Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -27,6 +27,7 @@ if ( !defined( 'ABSPATH' ) ) {
 // - Plugin Loader Settings
 // - Set Plugin Option Globals
 // - Start Plugin Loader Instance
+// - Filter Admin Texts
 // === Teleporter ===
 // - Enqueue Teleporter Scripts
 // - Localize Script Settings
@@ -167,124 +168,144 @@ define( 'TELEPORTER_HOME_URL', 'https://wordquest.org/plugins/teleporter/' );
 // Plugin Options
 // --------------
 // 1.0.0: added plugin options
-$options = array(
+// 1.1.2: use plugin options function for delayed translations
+function teleporter_get_plugin_options( $admin = false ) {
 
-	// === General ===
+	$options = array(
 
-	// --- Teleporter Switch ---
-	'page_fade_switch' => array(
-		'type'    => 'checkbox',
-		'label'   => __( 'Enable Teleporter', 'teleporter' ),
-		'default' => 'yes',
-		'value'   => 'yes',
-		'helper'  => __( 'Switch for enabling or disabling Teleporter.', 'teleporter' ),
-		'section' => 'basic',
-	),
+		// === General ===
 
-	// --- Page Fade Time ---
-	'page_fade_time' => array(
-		'type'    => 'number',
-		'label'   => __( 'Page Fade Time', 'teleporter' ),
-		'default' => 2000,
-		'min'     => 0,
-		'step'    => 100,
-		'max'     => 10000,
-		'helper'  => __( 'Number of milliseconds over which to fade in new Pages. Use 0 for instant display.', 'teleporter' ),
-		'section' => 'basic',
-	),
-
-	// --- Page Load Timeout ---
-	// 1.0.0: add page load timeout
-	'page_load_timeout' => array(
-		'type'    => 'number',
-		'label'   => __( 'Page Load Timeout', 'teleporter' ),
-		'default' => 7000,
-		'min'     => 0,
-		'step'    => 500,
-		'max'     => 20000,
-		'helper'  => __( 'Number of milliseconds to wait for new Page to load before fading in anyway. Use 0 for instant display.', 'teleporter' ),
-		'section' => 'basic',
-	),
-
-	// === Loading Bar ===
-
-	// --- Loading Bar Position ---
-	'loading_bar_position'        => array(
-		'type'    => 'select',
-		'label'   => __( 'Loading Bar Position', 'teleporter' ),
-		'default' => 'top',
-		'options' => array(
-			'top'     => __( 'Top', 'teleporter' ),
-			'bottom'  => __( 'Bottom', 'teleporter' ),
-			'none'    => __( 'None', 'teleporter' ),
+		// --- Teleporter Switch ---
+		'page_fade_switch' => array(
+			'type'    => 'checkbox',
+			'label'   => $admin ? __( 'Enable Teleporter', 'teleporter' ) : '',
+			'default' => 'yes',
+			'value'   => 'yes',
+			'helper'  => $admin ? __( 'Switch for enabling or disabling Teleporter.', 'teleporter' ) : '',
+			'section' => 'basic',
 		),
-		'helper'  => __( 'Loading bar position when fading in new pages.', 'teleporter' ),
-		'section' => 'loadingbar',
-	),
 
-	// --- Loading Bar Color ---
-	'loading_bar_color'        => array(
-		'type'    => 'coloralpha',
-		'label'   => __( 'Loading Bar Color', 'teleporter' ),
-		'default' => 'rgba(0,204,0,0.9)',
-		'helper'  => __( 'Loading bar color used when fading in new pages.', 'teleporter' ),
-		'section' => 'loadingbar',
-	),
+		// --- Page Fade Time ---
+		'page_fade_time' => array(
+			'type'    => 'number',
+			'label'   => $admin ? __( 'Page Fade Time', 'teleporter' ) : '',
+			'default' => 2000,
+			'min'     => 0,
+			'step'    => 100,
+			'max'     => 10000,
+			'helper'  => $admin ? __( 'Number of milliseconds over which to fade in new Pages. Use 0 for instant display.', 'teleporter' ) : '',
+			'section' => 'basic',
+		),
 
-	// === Advanced ===
+		// --- Page Load Timeout ---
+		// 1.0.0: add page load timeout
+		// 1.1.2: increase default to 10s due to addition of new prompt
+		'page_load_timeout' => array(
+			'type'    => 'number',
+			'label'   => $admin ? __( 'Page Load Timeout', 'teleporter' ) : '',
+			'default' => 10000,
+			'min'     => 0,
+			'step'    => 500,
+			'max'     => 20000,
+			'helper'  => $admin ? __( 'Number of milliseconds to wait for new Page to load before prompting or fading in anyway. Use 0 for instant display.', 'teleporter' ) : '',
+			'section' => 'basic',
+		),
 
-	// --- Ignore Link Classes ---
-	// 1.1.0: added thickbox to default ignore classes
-	'ignore_link_classes' => array(
-		'type'    => 'csv',
-		'label'   => __( 'Ignore Link Classes', 'teleporter' ),
-		'default' => 'no-teleporter,no-transition,thickbox,wplightbox',
-		'helper'  => __( 'Any links with these classes will not be transitioned. (Comma separated list of classes to ignore.)', 'teleporter' ),
-		'section' => 'advanced',
-	),
+		// --- Page Load Timeout ---
+		// 1.1.2: added timeout prompt option
+		'page_timeout_prompt' => array(
+			'type'    => 'checkbox',
+			'label'   => $admin ? __( 'Prompt on Timeout', 'teleporter' ) : '',
+			'value'   => 'yes',
+			'default' => 'yes',
+			'helper'  => $admin ? __( 'Whether to prompt user to view, retry or cancel on page transition timeout. Disabling will fade in on timeout.', 'teleporter' ) : '',
+			'section' => 'basic',
+		),
 
-	// --- Dynamic Link Classes ---
-	// 1.0.4: added dynamic link classes handling
-	'dynamic_link_classes' => array(
-		'type'    => 'csv',
-		'label'   => __( 'Dynamic Link Classes', 'teleporter' ),
-		'default' => '',
-		'helper'  => __( 'Dynamic links are those added to the page after loading. Add their classes here include them in transitions. (Comma separated list of classes to include.)', 'teleporter' ),
-		'section' => 'advanced',
-	),
+		// === Loading Bar ===
 
-	// --- Always Refresh Pages ---
-	// 1.0.8: added always refresh pages option
-	'always_refresh' => array(
-		'type'    => 'csv',
-		'label'   => __( 'Always Refresh Pages', 'teleporter' ),
-		'default' => 'cart,checkout',
-		'helper'  => __( 'Pages to force refresh when clicked, instead of switching to if previously loaded. (Comma separated list of page slugs or IDs.)', 'teleporter' ),
-		'section' => 'advanced',
-	),
+		// --- Loading Bar Position ---
+		'loading_bar_position'        => array(
+			'type'    => 'select',
+			'label'   => $admin ? __( 'Loading Bar Position', 'teleporter' ) : '',
+			'default' => 'top',
+			'options' => array(
+				'top'     => __( 'Top', 'teleporter' ),
+				'bottom'  => __( 'Bottom', 'teleporter' ),
+				'none'    => __( 'None', 'teleporter' ),
+			),
+			'helper'  => $admin ? __( 'Loading bar position when fading in new pages.', 'teleporter' ) : '',
+			'section' => 'loadingbar',
+		),
 
-	// --- Script Debug Mode ---
-	// 1.0.5: added for script debugging
-	'script_debug' => array(
-		'type'    => 'checkbox',
-		'label'   => __( 'Debug Mode', 'teleporter' ),
-		'value'    => 'yes',
-		'default' => '',
-		'helper'  => __( 'Use unminified script and output console debug messages.', 'teleporter' ),
-		'section' => 'advanced',
-	),
+		// --- Loading Bar Color ---
+		'loading_bar_color'        => array(
+			'type'    => 'coloralpha',
+			'label'   => $admin ? __( 'Loading Bar Color', 'teleporter' ) : '',
+			'default' => 'rgba(0,204,0,0.9)',
+			'helper'  => $admin ? __( 'Loading bar color used when fading in new pages.', 'teleporter' ) : '',
+			'section' => 'loadingbar',
+		),
 
-	// --- Section Titles ---
-	'sections' => array(
-		'basic'      => __( 'General', 'teleporter' ),
-		'loadingbar' => __( 'Loading Bar', 'teleporter' ),
-		'advanced'   => __( 'Advanced', 'teleporter' ),
-	),
-);
+		// === Advanced ===
+
+		// --- Ignore Link Classes ---
+		// 1.1.0: added thickbox to default ignore classes
+		'ignore_link_classes' => array(
+			'type'    => 'csv',
+			'label'   => $admin ? __( 'Ignore Link Classes', 'teleporter' ) : '',
+			'default' => 'no-teleporter,no-transition,thickbox,wplightbox',
+			'helper'  => $admin ? __( 'Any links with these classes will not be transitioned. (Comma separated list of classes to ignore.)', 'teleporter' ) : '',
+			'section' => 'advanced',
+		),
+
+		// --- Dynamic Link Classes ---
+		// 1.0.4: added dynamic link classes handling
+		'dynamic_link_classes' => array(
+			'type'    => 'csv',
+			'label'   => $admin ? __( 'Dynamic Link Classes', 'teleporter' ) : '',
+			'default' => '',
+			'helper'  => $admin ? __( 'Dynamic links are those added to the page after loading. Add their classes here include them in transitions. (Comma separated list of classes to include.)', 'teleporter' ) : '',
+			'section' => 'advanced',
+		),
+
+		// --- Always Refresh Pages ---
+		// 1.0.8: added always refresh pages option
+		'always_refresh' => array(
+			'type'    => 'csv',
+			'label'   => $admin ? __( 'Always Refresh Pages', 'teleporter' ) : '',
+			'default' => 'cart,checkout',
+			'helper'  => $admin ? __( 'Pages to force refresh when clicked, instead of switching to if previously loaded. (Comma separated list of page slugs or IDs.)', 'teleporter' ) : '',
+			'section' => 'advanced',
+		),
+
+		// --- Script Debug Mode ---
+		// 1.0.5: added for script debugging
+		'script_debug' => array(
+			'type'    => 'checkbox',
+			'label'   => $admin ? __( 'Debug Mode', 'teleporter' ) : '',
+			'value'    => 'yes',
+			'default' => '',
+			'helper'  => $admin ? __( 'Use unminified script and output console debug messages.', 'teleporter' ) : '',
+			'section' => 'advanced',
+		),
+
+		// --- Section Titles ---
+		'sections' => array(
+			'basic'      => $admin ? __( 'General', 'teleporter' ) : '',
+			'loadingbar' => $admin ? __( 'Loading Bar', 'teleporter' ) : '',
+			'advanced'   => $admin ? __( 'Advanced', 'teleporter' ) : '',
+		),
+	);
+
+	return $options;
+}
+$options = teleporter_get_plugin_options( false );
 
 // ----------------------
 // Plugin Loader Settings
 // ----------------------
+// 1.1.2: removed admin texts from initial load
 $slug = 'teleporter';
 $settings = array(
 	// --- Plugin Info ---
@@ -299,11 +320,11 @@ $settings = array(
 	// 'docs'         => TELEPORTER_DOCS_URL,
 	// 'support'		=> 'https://wordquest.org/quest-category/teleporter/',
 	'support'      => 'https://github.com/majick777/teleporter/issues/',
-	'ratetext'     => __( 'Rate on WordPress.org', 'teleporter' ),
+	// 'ratetext'     => __( 'Rate on WordPress.org', 'teleporter' ),
 	'share'        => 'https://wordquest.org/plugins/teleporter/#share',
-	'sharetext'    => __( 'Share the Plugin Love', 'teleporter' ),
+	// 'sharetext'    => __( 'Share the Plugin Love', 'teleporter' ),
 	'donate'       => 'https://wordquest.org/contribute/?plugin=teleporter',
-	'donatetext'   => __( 'Support this Plugin', 'teleporter' ),
+	// 'donatetext'   => __( 'Support this Plugin', 'teleporter' ),
 	'readme'       => false,
 	'settingsmenu' => false,
 
@@ -340,6 +361,32 @@ $teleporter_data['settings'] = $settings;
 require TELEPORTER_DIR . '/loader.php';
 $instance = new teleporter_loader( $settings );
 
+// ------------------
+// Filter Admin Texts
+// ------------------
+// 1.1.2: added filter for delayed translations
+add_filter( 'teleporter_admin_args', 'teleporter_settings_texts' );
+function teleporter_settings_texts( $args ) {
+	$texts = array(
+		'sharetext'    => __( 'Share the Plugin Love', 'teleporter' ),
+		'ratetext'     => __( 'Rate on WordPress.org', 'teleporter' ),
+		'donatetext'   => __( 'Support this Plugin', 'teleporter' ),
+	);
+	$args = array_merge( $args, $texts );
+	return $args;
+}
+
+// ---------------------------
+// Plugin Admin Options Filter
+// ---------------------------
+// 1.1.2: added filter for delay translated admin options
+add_filter( 'teleporter_options', 'teleporter_admin_options' );
+function teleporter_admin_options( $options ) {
+	$admin = is_admin();
+	$options = teleporter_get_plugin_options( $admin );
+	return $options;
+}
+
 
 // ------------------
 // === Teleporter ===
@@ -361,7 +408,8 @@ function teleporter_is_admin_or_editor() {
 	// --- block editor ---
 	if ( function_exists( 'get_current_screen' ) ) {
 		$current_screen = get_current_screen();
-		if ( method_exists( $current_screen, 'is_block_editor' ) && $current_screen->is_block_editor() ) {
+		// 1.12: added extra check for current screen object
+		if ( is_object( $current_screen ) && method_exists( $current_screen, 'is_block_editor' ) && $current_screen->is_block_editor() ) {
 			return true;
 		}
 	}
@@ -452,6 +500,21 @@ function teleporter_enqueue_scripts() {
 
 	// --- localize script settings ---
 	teleporter_localize_settings();
+	
+	// --- enqueue jquery dialogue ---
+	// 1.1.2: added for timeout prompt
+	$prompt = teleporter_get_setting( 'page_timeout_prompt' );
+	if ( 'yes' == $prompt ) {
+		if ( !wp_script_is( 'jquery-ui-dialog', 'enqueued' ) && !wp_script_is( 'jquery-ui-dialog', 'done' ) ) {
+			wp_enqueue_script( 'jquery-ui-dialog' ); 
+		}
+		if ( !wp_style_is( 'wp-jquery-ui-dialog', 'enqueued' ) && !wp_style_is( 'wp-jquery-ui-dialog', 'done' ) ) {
+			wp_enqueue_style( 'wp-jquery-ui-dialog' );
+			$css = '.teleporter-dialog .ui-dialog-titlebar {display:none};' . "\n";
+			$css .= '.teleporter-dialog .button-small {font-size: 12px;}';
+			wp_add_inline_style( 'wp-jquery-ui-dialog', $css );
+		}
+	}
 }
 
 // ------------------------
@@ -823,8 +886,9 @@ function teleporter_dynamic_styles() {
 		$iframe = 'teleporter-iframe';
 	}
 	$loading = apply_filters( 'teleporter_loading_id', 'teleporter-loading' );
-	if ( !$iframe || !is_string( $iframe ) ) {
-		$iframe = 'teleporter-loading';
+	// 1.1.2: fix variable typo (iframe)
+	if ( !$loading || !is_string( $loading ) ) {
+		$loading = 'teleporter-loading';
 	}
 
 	// --- output page transition iframe ---
@@ -834,7 +898,8 @@ function teleporter_dynamic_styles() {
 
 	// --- output loading div ---
 	if ( 'none' != $loading_bar_position ) {
-		echo '<div id="' . esc_attr( $loading ) . '"></div>';
+		// 1.1.2: add loading bar position class
+		echo '<div id="' . esc_attr( $loading ) . '" class="teleporter-loading-' . esc_attr( $loading_bar_position ) . '"></div>' . "\n";
 	}
 
 	// --- iframe and loading styles ---
@@ -847,16 +912,13 @@ function teleporter_dynamic_styles() {
 	// --- loading bar styles ---
 	// 1.0.0: add check for non-zero page fade time and loading bar position
 	if ( ( $page_fade_time > 0 ) && ( 'none' != $loading_bar_position ) ) {
+		// 1.0.8: added missing esc_attr wrapper on loading bar color value
 		echo "#" . esc_attr( $loading ) . " {position: fixed; left: 0; right: 0; margin: 0; padding: 0; ";
-			echo "border: none; height: 7px; width: 0; max-width: 5000px; overflow: hidden; ";
-			// 1.0.8: added missing esc_attr wrapper on loading bar color value
-			echo "opacity: 0; transition: none; background: " . esc_attr( $loading_bar_color ) . ";";
-		if ( 'top' == $loading_bar_position ) {
-			echo " top: 0;";
-		} else {
-			echo " bottom: 0;";
-		}
-		echo "}" . "\n";
+		echo "border: none; height: 7px; width: 0; max-width: 5000px; overflow: hidden; ";
+		echo "opacity: 0; transition: none; background: " . esc_attr( $loading_bar_color ) . ";}" . "\n";
+		// 1.1.2: set position rules for based on classes
+		echo "#" . esc_attr( $loading ) . ".teleporter-loading-top {top: 0;}" . "\n";
+		echo "#" . esc_attr( $loading ) . ".teleporter-loading-bottom {bottom: 0;}" . "\n";
 
 		// 1.0.0: use page load timeout for loading bar animation
 		// 1.0.8: added missing esc_attr wrapper on timeout value
@@ -865,16 +927,40 @@ function teleporter_dynamic_styles() {
 		echo "#" . esc_attr( $loading ) . ".reset {transition: none; width: 0; opacity: 0;}" . "\n";
 
 		// --- maybe shift top position for admin bar ---
-		if ( 'none' != $loading_bar_position ) {
-			echo "body.admin-bar #" . esc_attr( $loading ) . " {top: 32px;}" . "\n";
-			echo "@media screen and (max-width: 782px) {";
-				echo "body.admin-bar #" . esc_attr( $loading ) . "{top: 46px;}";
-			echo "}" . "\n";
-		}
+		// 1.1.2: set targeting for top position class only
+		echo "body.admin-bar #" . esc_attr( $loading ) . ".teleporter-loading-top {top: 32px;}" . "\n";
+		echo "@media screen and (max-width: 782px) {";
+			echo "body.admin-bar #" . esc_attr( $loading ) . ".teleporter-loading-top {top: 46px;}";
+		echo "}" . "\n";
 	}
 
 	echo "</style>";
 
+}
+
+// ----------------------
+// Pageload Timeout Modal
+// ----------------------
+// 1.1.2: added user prompt for page timeout
+add_action( 'wp_footer', 'teleporter_page_timeout_modal', 20 );
+function teleporter_page_timeout_modal() {
+	
+	$prompt = teleporter_get_setting( 'page_timeout_prompt' );
+	if ( 'yes' != $prompt ) {
+		return;
+	}
+
+	echo '<div id="teleporter-timeout-modal" style="display:none; text-align:center;">' . "\n";
+		echo '<div class="timeout-question">' . "\n";
+			$question = __( 'This page is taking a long time to load.', 'teleporter' );
+			$question .= ' ' . __( 'What would you like to do?', 'teleporter' );
+			$question = apply_filters( 'teleporter_timeout_prompt_question', $question );
+			echo esc_html( $question ) . "\n";
+		echo '</div><br>' . "\n";
+		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'view\');">' . esc_html( __( 'View Now', 'teleporter' ) ) . '</button>' . "\n";
+		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'retry\');">' . esc_html( __( 'Retry', 'teleporter' ) ) . '</button>' . "\n";
+		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'cancel\');">' . esc_html( __( 'Cancel', 'teleporter' ) ) . '</button>' . "\n";
+	echo '</div>' . "\n";
 }
 
 // ------------------------------
