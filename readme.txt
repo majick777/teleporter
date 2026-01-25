@@ -3,8 +3,8 @@ Contributors: majick
 Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
-Tested up to: 6.8
-Stable tag: 1.1.1
+Tested up to: 6.9
+Stable tag: 1.1.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,13 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.1.2 =
+* Updated: Plugin Panel (1.3.7)
+* Improved: Add position class for targeting Teleporter loading bar
+* Fixed: Incorrect variable check on loading bar filter
+* Fixed: Check current screen object for Block Editor
+* Fixed: Delayed admin translations for settings panel
 
 = 1.1.1 =
 * Updated: Plugin Panel (1.3.5)

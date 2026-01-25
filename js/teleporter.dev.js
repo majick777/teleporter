@@ -168,6 +168,7 @@ function teleporter_push_state(href, win) {
 }
 
 /* --- Show Loading Divs --- */
+/* 1.1.3: use classList add/remove instead of className */
 function teleporter_show_loading(href) {
 
 	/* set maximum page load timeout */
@@ -190,19 +191,27 @@ function teleporter_show_loading(href) {
 	if (!teleporter.loading) {return;}
 	topdoc = t_topwin.document;
 	topdoc.getElementsByTagName('body')[0].classList.add('teleporter-loading');
-	topdoc.getElementById(teleporter.loading).className = 'reset';
-	setTimeout(function() {topdoc.getElementById(teleporter.loading).className = 'loading';}, 250);
+	topdoc.getElementById(teleporter.loading).classList.add('reset');
+	setTimeout(function() {
+		topdoc.getElementById(teleporter.loading).classList.remove('reset');
+		topdoc.getElementById(teleporter.loading).classList.add('loading');
+	}, 250);
 	iframes = topdoc.getElementsByClassName(teleporter.iframe);
 	for (i = 0; i < iframes.length; i++) {
 		doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
-		if (doc.getElementById(teleporter.loading)) {doc.getElementById(teleporter.loading).className = 'reset';}
+		if (doc.getElementById(teleporter.loading)) {
+			doc.getElementById(teleporter.loading).classList.remove('loading');
+			doc.getElementById(teleporter.loading).classList.add('reset');
+		}
 	}
 	setTimeout(function() {
 		for (i = 0; i < iframes.length; i++) {
 			doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
 			body = doc.getElementsByTagName('body')[0];
 			if (body) {body.classList.add('teleporter-loading');}
-			if (doc.getElementById(teleporter.loading)) {doc.getElementById(teleporter.loading).className = 'loading';}
+			if (doc.getElementById(teleporter.loading)) {
+				doc.getElementById(teleporter.loading).classList.add('loading');
+			}
 		}
 	}, 250);
 }
@@ -211,7 +220,8 @@ function teleporter_show_loading(href) {
 function teleporter_hide_loading() {
 	if (!teleporter.loading) {return;}
 	topdoc = t_topwin.document;
-	topdoc.getElementById(teleporter.loading).className = '';
+	topdoc.getElementById(teleporter.loading).classList.remove('loading');
+	topdoc.getElementById(teleporter.loading).classList.remove('reset');
 	topdoc.getElementsByTagName('body')[0].classList.remove('teleporter-loading');
 	iframes = topdoc.getElementsByClassName(teleporter.iframe);
 	for (i = 0; i < iframes.length; i++) {
@@ -219,7 +229,10 @@ function teleporter_hide_loading() {
 		body = doc.getElementsByTagName('body')[0];
 		if (body) {body.classList.remove('teleporter-loading');}
 		/* 1.0.0: fix to check for loading element */
-		if (doc.getElementById(teleporter.loading)) {doc.getElementById(teleporter.loading).className = '';}
+		if (doc.getElementById(teleporter.loading)) {
+			doc.getElementById(teleporter.loading).classList.remove('reset');
+			doc.getElementById(teleporter.loading).classList.remove('loading');
+		}
 	}
 }
 
