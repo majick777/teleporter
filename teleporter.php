@@ -199,14 +199,26 @@ function teleporter_get_plugin_options( $admin = false ) {
 
 		// --- Page Load Timeout ---
 		// 1.0.0: add page load timeout
+		// 1.1.2: increase default to 10s due to addition of new prompt
 		'page_load_timeout' => array(
 			'type'    => 'number',
 			'label'   => $admin ? __( 'Page Load Timeout', 'teleporter' ) : '',
-			'default' => 7000,
+			'default' => 10000,
 			'min'     => 0,
 			'step'    => 500,
 			'max'     => 20000,
-			'helper'  => $admin ? __( 'Number of milliseconds to wait for new Page to load before fading in anyway. Use 0 for instant display.', 'teleporter' ) : '',
+			'helper'  => $admin ? __( 'Number of milliseconds to wait for new Page to load before prompting or fading in anyway. Use 0 for instant display.', 'teleporter' ) : '',
+			'section' => 'basic',
+		),
+
+		// --- Page Load Timeout ---
+		// 1.1.2: added timeout prompt option
+		'page_timeout_prompt' => array(
+			'type'    => 'checkbox',
+			'label'   => $admin ? __( 'Prompt on Timeout', 'teleporter' ) : '',
+			'value'   => 'yes',
+			'default' => 'yes',
+			'helper'  => $admin ? __( 'Whether to prompt user to view, retry or cancel on page transition timeout. Disabling will fade in on timeout.', 'teleporter' ) : '',
 			'section' => 'basic',
 		),
 
@@ -488,6 +500,21 @@ function teleporter_enqueue_scripts() {
 
 	// --- localize script settings ---
 	teleporter_localize_settings();
+	
+	// --- enqueue jquery dialogue ---
+	// 1.1.2: added for timeout prompt
+	$prompt = teleporter_get_setting( 'page_timeout_prompt' );
+	if ( 'yes' == $prompt ) {
+		if ( !wp_script_is( 'jquery-ui-dialog', 'enqueued' ) && !wp_script_is( 'jquery-ui-dialog', 'done' ) ) {
+			wp_enqueue_script( 'jquery-ui-dialog' ); 
+		}
+		if ( !wp_style_is( 'wp-jquery-ui-dialog', 'enqueued' ) && !wp_style_is( 'wp-jquery-ui-dialog', 'done' ) ) {
+			wp_enqueue_style( 'wp-jquery-ui-dialog' );
+			$css = '.teleporter-dialog .ui-dialog-titlebar {display:none};' . "\n";
+			$css .= '.teleporter-dialog .button-small {font-size: 12px;}';
+			wp_add_inline_style( 'wp-jquery-ui-dialog', $css );
+		}
+	}
 }
 
 // ------------------------
@@ -909,6 +936,31 @@ function teleporter_dynamic_styles() {
 
 	echo "</style>";
 
+}
+
+// ----------------------
+// Pageload Timeout Modal
+// ----------------------
+// 1.1.2: added user prompt for page timeout
+add_action( 'wp_footer', 'teleporter_page_timeout_modal', 20 );
+function teleporter_page_timeout_modal() {
+	
+	$prompt = teleporter_get_setting( 'page_timeout_prompt' );
+	if ( 'yes' != $prompt ) {
+		return;
+	}
+
+	echo '<div id="teleporter-timeout-modal" style="display:none; text-align:center;">' . "\n";
+		echo '<div class="timeout-question">' . "\n";
+			$question = __( 'This page is taking a long time to load.', 'teleporter' );
+			$question .= ' ' . __( 'What would you like to do?', 'teleporter' );
+			$question = apply_filters( 'teleporter_timeout_prompt_question', $question );
+			echo esc_html( $question ) . "\n";
+		echo '</div><br>' . "\n";
+		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'view\');">' . esc_html( __( 'View Now', 'teleporter' ) ) . '</button>' . "\n";
+		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'retry\');">' . esc_html( __( 'Retry', 'teleporter' ) ) . '</button>' . "\n";
+		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'cancel\');">' . esc_html( __( 'Cancel', 'teleporter' ) ) . '</button>' . "\n";
+	echo '</div>' . "\n";
 }
 
 // ------------------------------

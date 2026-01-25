@@ -86,6 +86,8 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 = 1.1.2 =
 * Updated: Plugin Panel (1.3.7)
 * Improved: Add position class for targeting Teleporter loading bar
+* Improved: Halve fade time for already loaded windows
+* Added: User prompt to view, retry or cancel on pageload timeout
 * Fixed: Incorrect variable check on loading bar filter
 * Fixed: Check current screen object for Block Editor
 * Fixed: Delayed admin translations for settings panel

@@ -22,7 +22,8 @@ if (typeof t_topwin.t_poppedstate == 'undefined') {
 }
 
 /* --- Transition Page --- */
-function teleporter_transition_page(link) {
+function teleporter_transition_link(link) {return teleporter_transition_page(link.href);}
+function teleporter_transition_page(href) {
 	if ((typeof History != 'function') && !window.history) {return true;}
 	t_topwin.t_cancel = false; /* reset cancel state */
 
@@ -32,7 +33,7 @@ function teleporter_transition_page(link) {
 		stateurls = t_topwin.stateurls;
 		for (i in stateurls) {
 			/* if (teleporter.debug) {console.log(link.href+' - '+i+': '+stateurls[i]);} */
-			if (stateurls[i] == link.href) {
+			if (stateurls[i] == href) {
 				if (i == t_topwin.currentstate) {
 					/* if (teleporter.debug) {console.log('Keeping Current State ('+t_topwin.currentstate+')');} */
 					return false;
@@ -43,8 +44,8 @@ function teleporter_transition_page(link) {
 				title = t_topwin.statetitles[i];
 				var obj = {id: i, title: title, url: link.href};
 				t_topwin.t_pushing = true;
-				if (typeof t_topwin.History == 'function') {t_topwin.History.replaceState(obj, title, link.href);}
-				else if (t_topwin.history) {t_topwin.history.replaceState(obj, title, link.href);}
+				if (typeof t_topwin.History == 'function') {t_topwin.History.replaceState(obj, title, href);}
+				else if (t_topwin.history) {t_topwin.history.replaceState(obj, title, href);}
 				/* if (teleporter.debug) {
 					if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
 					else if (t_topwin.history) {console.log(t_topwin.history.state);}
@@ -56,11 +57,11 @@ function teleporter_transition_page(link) {
 	}
 
 	/* load new state in new iframe */
-	iframe = teleporter_add_iframe(link.href);
+	iframe = teleporter_add_iframe(href);
 	/* if (teleporter.debug) {console.log('Loading New Iframe:'); console.log(iframe);} */
 
 	/* maybe show loading div */
-	teleporter_show_loading(link.href);
+	teleporter_show_loading(href);
 
 	return false;
 }
@@ -172,19 +173,23 @@ function teleporter_push_state(href, win) {
 function teleporter_show_loading(href) {
 
 	/* set maximum page load timeout */
-	/* 1.0.0: added to auto-display a slow loading pages */
+	/* 1.0.0: added to auto-display slow loading pages */
 	t_topwin.t_loading = href;
 	setTimeout(function() {
 		if (!t_topwin.t_loading) {return;}
-		href = t_topwin.t_loading;
-		console.log('Page load timeout reached. Displaying URL: '+href);
-		iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
- 		for (i = 0; i < iframes.length; i++) {
- 			if (href == iframes[i].src) {iframe = iframes[i];}
-		}
-		if (!iframe) {return;}
-		win = iframe.contentWindow;
-		teleporter_transition_check(href, win);
+		console.log('Page load timeout reached.');
+		/* 1.1.2: prompt user to view, retry or cancel */
+		if ((typeof jQuery == 'function') && jQuery.ui && jQuery.ui.dialog && jQuery('#teleporter-timeout-modal'.length)) {
+			jQuery('#teleporter-timeout-modal').dialog({ modal:true, width:300, dialogClass: 'teleporter-dialog', position: {my: 'center top', at: 'center top+80', of: window } });
+			var teleporter_timeout_check; clearInterval(teleporter_timeout_check);
+			teleporter_timeout_check = setInterval(function() {
+				if (!t_topwin.t_loading) {
+					jQuery('#teleporter-timeout-modal').dialog('close');
+					clearInterval(teleporter_timeout_check);
+				}
+			}, 500);
+		} else {teleporter_prompt_choice('view');}
+
 	}, teleporter.timeout);
 
 	/* maybe show the loading div */
@@ -233,6 +238,43 @@ function teleporter_hide_loading() {
 			doc.getElementById(teleporter.loading).classList.remove('reset');
 			doc.getElementById(teleporter.loading).classList.remove('loading');
 		}
+	}
+}
+
+/* Timeout Prompt Response Handler */
+function teleporter_prompt_choice(choice) {
+	jQuery('#teleporter-timeout-modal').dialog('close');
+	if (!t_topwin.t_loading) {return;}
+	href = t_topwin.t_loading; console.log(href);
+	if (choice == 'view') {
+		if (teleporter.debug) {console.log('Displaying URL: '+href);}
+		iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
+		for (i = 0; i < iframes.length; i++) {
+			if (href == iframes[i].src) {iframe = iframes[i];}
+		}
+		if (!iframe) {return;}
+		win = iframe.contentWindow;
+		teleporter_transition_check(href, win);
+	}
+	if ((choice == 'retry') || (choice == 'cancel')) {
+		t_topwin.t_cancel = true; t_topwin.t_loading = false;
+		teleporter_hide_loading();
+		iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
+		for (i = 0; i < iframes.length; i++) {
+			if (href == iframes[i].src) {iframe = iframes[i];}
+		}
+		if (!iframe) {return;}
+		iframe.parentElement.removeChild(iframe);
+		stateurls = t_topwin.stateurls; statetitles = t_topwin.statetitles;
+		for (i = stateurls.length - 1; i >= 0; i--) {
+			if (stateurls[i] == href) {stateurls.splice(i,1); statetitles.splice(i,1);}
+		}
+	}
+	if (choice == 'retry') {
+		if (teleporter.debug) {console.log('Reloading Page: '+href);}
+		teleporter_transition_page(href);
+	} else if (choice == 'cancel') {
+		if (teleporter.debug) {console.log('Cancelled Page Transition.');}
 	}
 }
 
@@ -327,7 +369,7 @@ function teleporter_popstate_checker(event) {
 				else if (t_topwin.history) {history.back();}
 			} else {
 				/* lost from history so just load it */
-				teleporter_transition_page({href: state.url});
+				teleporter_transition_page(state.url);
 			}
 			return;
 		/* }*/
@@ -395,7 +437,9 @@ function teleporter_switch_state(stateid) {
 			/* if (teleporter.debug) {console.log('Hiding All Iframes');} */
 			if (iframes[i].style.display != 'none') {
 				if ((typeof jQuery == 'function') && teleporter.fadetime) {
-					jQuery(iframes[i]).fadeOut(teleporter.fadetime);
+					/* 1.1.2: halve fade time for existing window */
+					fadetime = parseInt(teleporter.fadetime / 2);
+					jQuery(iframes[i]).fadeOut(fadetime);
 				} else {iframes[i].style.display = 'none';}
 			}
 		}
@@ -417,14 +461,18 @@ function teleporter_switch_state(stateid) {
 			/* if (teleporter.debug) {console.log('Hiding Iframes');} */
 			if ((i != j) && (iframes[i].style.display != 'none')) {
 				if ((typeof jQuery == 'function') && teleporter.fadetime) {
-					jQuery(iframes[i]).fadeOut(teleporter.fadetime);
+					/* 1.1.2: halve fade time for existing iframe */
+					fadetime = parseInt(teleporter.fadetime / 2);
+					jQuery(iframes[i]).fadeOut(fadetime);
 				} else {iframes[i].style.display = 'none';}
 			}
 		}
 
 		/* display the iframe */
 		if ((typeof jQuery == 'function') && teleporter.fadetime) {
-			jQuery(iframe).fadeIn(teleporter.fadetime);
+			/* 1.1.2: halve fade time for existing iframe */
+			fadetime = parseInt(teleporter.fadetime / 2);
+			jQuery(iframe).fadeIn(fadetime);
 		} else {iframe.style.display = 'block';}
 	}
 
@@ -593,8 +641,8 @@ function teleporter_add_link_event(el) {
 		e.preventDefault();
 		target = jQuery(e.target);
 		if (target.prop('tagName') != 'a') {target = target.closest('a');}
-		element = target[0];
-		return teleporter_transition_page(element);
+		el = target[0];
+		return teleporter_transition_page(el.href);
 	});
 }
 
@@ -612,7 +660,7 @@ function teleporter_add_link_onclicks() {
 			/* alinks[i].addEventListener('click', function(e) {
 				e.stopImmediatePropagation();
 				e.preventDefault();
-				return teleporter_transition_page(e.target);
+				return teleporter_transition_page(e.target.href);
 			}); */
 		}
 	}
@@ -621,7 +669,7 @@ function teleporter_add_link_onclicks() {
 /* --- Add Link Onclick Attribute --- */
 function teleporter_add_link_onclick(el) {
 	/* TODO: set click event instead of attribute? */
-	el.setAttribute('onclick', 'return teleporter_transition_page(this);');
+	el.setAttribute('onclick', 'return teleporter_transition_link(this);');
 }
 
 
@@ -642,11 +690,11 @@ function teleporter_dynamic_link_clicks() {
 		target = jQuery(e.target);
 		if (target.prop('tagName') != 'a') {target = target.closest('a');}
 		if (target.getAttribute('teleporter') == '1') {return;}
-		element = target[0];
-		skip = teleporter_skip_link(element);
+		el = target[0];
+		skip = teleporter_skip_link(el);
 		if (!skip) {
 			if (teleporter.debug) {console.log(target);}
-			return teleporter_transition_page(element);	
+			return teleporter_transition_page(el.href);	
 		}
 	});
 }
