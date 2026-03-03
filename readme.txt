@@ -4,7 +4,7 @@ Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
 Tested up to: 6.9
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,10 +36,10 @@ Teleporter loads new content in iframes within the existing window, then uses th
 
 Any standard `<a>` link on the page that:
 
-1. Does not have a link target attribute set.
+1. Does not have a link target attribute set (unless _self).
 2. Does not have an onclick attribute already explicitly set.
 3. Does not have a class of `no-transition` or `no-teleporter` (or other specified classes.)
-4. Does not have an URL starting with `javascript` or `#` or `?` or `mailto:` or `tel:`
+4. Does not have an URL starting with `javascript` or `#` or `?` or `mailto:` or `tel:` or `sms:`
 5. Does not have an URL starting with the current Site URL.
 6. Does not have an URL with a hostname matching the current page.
 7. Does not have an URL containing `/wp-admin/` or `wp-login.php`.
@@ -65,13 +65,22 @@ Intended for use with cart or checkout pages. For example, if a customer visits 
 
 Note if there are other non-page URLS (eg. archives) where you want to force refresh also you can set the `teleporter_refresh` filter to true for that condition.
 
+= How does it handle page load timeouts and errors? */
+
+Prior to 1.1.2, page loads that reach the timeout threshhold are simply transitioned to anyway.
+
+Since 1.1.2, the option was added to prompt the user (via dialog modal) to View, Retry or Cancel when the page is taking too long to load.
+
+As of 1.1.3, the HTTP response for the URL navigated to is checked via header fetch, and thus the user can also be optionally prompted in the case of page not found (404) or other page load errors.
+
+
 = Will it break other scripts? =
 
 No. Unlike similar plugins or libraries that use AJAX to retrieve new content and swap it on the current page, Teleporter uses iframes. This may seem a little counter-intuitive since iframes have been around forever and AJAX would seem to be the modern tool for the job. However, loading page content in an iframe means that any scripts loaded within that iframe are correctly loaded by the browser without fail. Using AJAX, there is a risk that the scripts in the current page and the new page are different, which could cause breakage as the new page's scripts are not initialized along with the content, and AJAX page transitioning does not (and cannot) address this issue.
 
 = How do I conflict test this? =
 
-If the page transitions are not working at all, it is likely you have another plugin causing a javascript error. This would prevent Teleporter from loading. Check you javascript console by right-clicking and selecting "Inspect" or "Inspect Element" then choose the "Console" tab from within the developer box. Javascript errors will be shown in red. You can try deactivating the plugin causing the error to see if this resolves the issue and if so report it to the plugin author. If the error is from Teleporter itself, please report it in the [Plugin Support forum](https://wordpress.org/support/plugins/teleporter/)
+If the page transitions are not working at all, it is likely you have another plugin causing a javascript error. This would prevent Teleporter from loading. Check you javascript console by right-clicking and selecting "Inspect" or "Inspect Element" then choose the "Console" tab from within the developer box. Javascript errors will be shown in red. You can try deactivating the plugin causing the error to see if this resolves the issue and if so report it to the plugin author. If the error is from Teleporter itself, please report it in the [Plugin Support forum](https://wordpress.org/support/plugins/teleporter/) or via [Github Issues](https://github.com/majick777/teleporter/issues/)
 
 = How do I debug the script? =
 
@@ -82,6 +91,15 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.1.3 =
+* Refactor: Functions called in top window to avoid any CORS errors
+* Fixed: Forward button not displaying after first back click
+* Fixed: Setting of window titles to iframe document title tag
+* Added: Option to force external links to new window (as default)
+* Added: Check page not found/error via URL head HTTP code prefetch
+* Improved: Always refresh pages via post slug or ID matching
+* Improved: Prompt user on timeout or 404 not found/error
 
 = 1.1.2 =
 * Updated: Plugin Panel (1.3.7)

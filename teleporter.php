@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.1.2
+Version: 1.1.3
 Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -28,6 +28,8 @@ if ( !defined( 'ABSPATH' ) ) {
 // - Set Plugin Option Globals
 // - Start Plugin Loader Instance
 // - Filter Admin Texts
+// - Plugin Admin Options Filter
+// - Plugin Options Filter
 // === Teleporter ===
 // - Enqueue Teleporter Scripts
 // - Localize Script Settings
@@ -249,6 +251,17 @@ function teleporter_get_plugin_options( $admin = false ) {
 
 		// === Advanced ===
 
+		// --- Force New Window ---
+		// 1.1.3: added external links to new window
+		'external_new_window' => array(
+			'type'    => 'checkbox',
+			'label'   => $admin ? __( 'External to New Window', 'teleporter' ) : '',
+			'value'   => 'yes',
+			'default' => 'yes',
+			'helper'  => $admin ? __( 'Force any external links to open in a new window.', 'teleporter' ) : '',
+			'section' => 'advanced',
+		),
+
 		// --- Ignore Link Classes ---
 		// 1.1.0: added thickbox to default ignore classes
 		'ignore_link_classes' => array(
@@ -314,6 +327,7 @@ $settings = array(
 	'version'      => '0.0.1',
 
 	// --- Menus and Links ---
+	// 1.1.2: moved translated texts to filter
 	'title'        => 'Teleporter',
 	'parentmenu'   => 'wordquest',
 	'home'         => TELEPORTER_HOME_URL,
@@ -340,7 +354,7 @@ $settings = array(
 	'textdomain'   => 'teleporter',
 
 	// --- Freemius ---
-	// TODO: add Freemius integration
+	// TODO: add Freemius integration ?
 	// 'freemius_id'  => '',
 	// 'freemius_key' => '',
 	// 'hasplans'     => false,
@@ -368,6 +382,7 @@ $instance = new teleporter_loader( $settings );
 add_filter( 'teleporter_admin_args', 'teleporter_settings_texts' );
 function teleporter_settings_texts( $args ) {
 	$texts = array(
+		'title'        => __( 'Teleporter', 'teleporter' ),
 		'sharetext'    => __( 'Share the Plugin Love', 'teleporter' ),
 		'ratetext'     => __( 'Rate on WordPress.org', 'teleporter' ),
 		'donatetext'   => __( 'Support this Plugin', 'teleporter' ),
@@ -384,6 +399,16 @@ add_filter( 'teleporter_options', 'teleporter_admin_options' );
 function teleporter_admin_options( $options ) {
 	$admin = is_admin();
 	$options = teleporter_get_plugin_options( $admin );
+	return $options;
+}
+
+// ---------------------
+// Plugin Options Filter
+// ---------------------
+// 1.1.3: added to bypass REST null options bug
+add_filter( 'teleporter_plugin_options', 'teleporter_plugin_options' );
+function teleporter_plugin_options( $options ) {
+	$options = teleporter_get_plugin_options( false );
 	return $options;
 }
 
@@ -504,14 +529,17 @@ function teleporter_enqueue_scripts() {
 	// --- enqueue jquery dialogue ---
 	// 1.1.2: added for timeout prompt
 	$prompt = teleporter_get_setting( 'page_timeout_prompt' );
-	if ( 'yes' == $prompt ) {
+	// 1.1.3: load for any non-empty value
+	if ( '' != $prompt ) {
 		if ( !wp_script_is( 'jquery-ui-dialog', 'enqueued' ) && !wp_script_is( 'jquery-ui-dialog', 'done' ) ) {
 			wp_enqueue_script( 'jquery-ui-dialog' ); 
 		}
 		if ( !wp_style_is( 'wp-jquery-ui-dialog', 'enqueued' ) && !wp_style_is( 'wp-jquery-ui-dialog', 'done' ) ) {
 			wp_enqueue_style( 'wp-jquery-ui-dialog' );
-			$css = '.teleporter-dialog .ui-dialog-titlebar {display:none};' . "\n";
-			$css .= '.teleporter-dialog .button-small {font-size: 12px;}';
+			$css = '.teleporter-dialog {z-index: 9999 !important;}' . "\n";
+			$css .= '.teleporter-dialog .ui-dialog-titlebar {display:none};' . "\n";
+			$css .= '.teleporter-dialog .button-small {display: inline-block; font-size: 12px;} ';
+			$css .= '.teleporter-modal {text-align: center;}';
 			wp_add_inline_style( 'wp-jquery-ui-dialog', $css );
 		}
 	}
@@ -543,6 +571,20 @@ function teleporter_localize_settings() {
 	if ( !$timeout ) {
 		$timeout = 'false';
 	}
+
+	// --- set user prompt conditions ---
+	// 1.1.3: added prompt setting to check
+	$prompt = teleporter_get_setting( 'page_timeout_prompt' );
+	$prompt = apply_filters( 'teleporter_load_prompt', $prompt );
+	if ( !$prompt ) {
+		$prompt = '';
+	}
+
+	// --- force external to new window ---
+	// 1.1.3: added force external links option
+	$external = teleporter_get_setting( 'external_new_window' );
+	$external = apply_filters( 'teleporter_force_external', $external );
+	$external = ( 'yes' == $external ) ? 'true' : 'false';
 
 	// --- set ignore classes ---
 	// 1.0.0: get ignore classes from setting
@@ -675,10 +717,14 @@ function teleporter_localize_settings() {
 	// --- output script settings object ---
 	// 1.0.0: added timeout setting
 	// 1.0.4: added dynamic classes setting
+	// 1.1.3: added prompt setting
+	// 1.1.3: added externalize setting
 	$js = "var teleporter = {";
 		$js .= "debug: " . esc_js( $debug ) . ", ";
 		$js .= "fadetime: " . esc_js( $fade_time ) . ", ";
 		$js .= "timeout: " . esc_js( $timeout ) . ", ";
+		$js .= "prompton: '" . esc_js( $prompt ) . "', ";
+		$js .= "externalize: " . esc_js( $external ) . ", ";
 		$js .= "ignore: " . $ignore . ", ";
 		$js .= "dynamic: " . $dynamic . ", ";
 		$js .= "iframe: " . $iframe . ", ";
@@ -721,24 +767,30 @@ function teleporter_localize_settings() {
 	$js .= "});" . "\n";
 
 	// --- filter extra script and add to teleporter ---
+	// 1.1.3: remove duplicate of wp_add_inline_script
 	$js = apply_filters( 'teleporter_script_settings', $js );
-	wp_add_inline_script( 'teleporter', $js );
 
 	// --- check for always refresh pages ---
 	// 1.0.8: added javascript body refresh attribute flag
 	$teleporter_refresh = false;
 	$always_refresh = trim( teleporter_get_setting( 'always_refresh' ) );
 	$always_refresh = strstr( $always_refresh, ',' ) ? explode( ',', $always_refresh ) : array( $always_refresh );
+	// 1.1.3: trim array to avoid spaces ruining matches
+	foreach( $always_refresh as $i => $page ) {
+		$always_refresh[$i] = trim( $page );
+	}
 	if ( is_singular() ) {
 		global $post;
-		if ( in_array( $post->post_name, $always_refresh ) || in_array( $post->ID, $always_refresh ) ) {
+		if ( in_array( $post->post_name, $always_refresh ) || in_array( (string)$post->ID, $always_refresh ) ) {
 			$teleporter_refresh = true;
 		}
 	}
-	// 1.0.9: allow for partial URL path matching (containing '/')
+	// 1.0.9: allow for partial URL path matching (if containing '/')
+	// 1.1.3: check explicitly for /{page}/ as well
 	if ( !$teleporter_refresh ) {
 		foreach ( $always_refresh as $page ) {
-			if ( strstr( $page, '/' ) && strstr( $_SERVER['SCRIPT_NAME'], $page ) ) {
+			if ( strstr( $_SERVER['SCRIPT_NAME'], '/' . $page . '/' )
+			|| ( strstr( $page, '/' ) && strstr( $_SERVER['SCRIPT_NAME'], $page ) ) ) {
 				$teleporter_refresh = true;
 			}
 		}
@@ -747,8 +799,10 @@ function teleporter_localize_settings() {
 	$teleporter_refresh = apply_filters( 'teleporter_refresh', $teleporter_refresh );
 	if ( $teleporter_refresh ) {
 		$js .= "window.document.getElementsByTagName('body')[0].setAttribute('teleporter-refresh','1');";
-		wp_add_inline_script( 'teleporter', $js );
 	}
+
+	// 1.1.3: move add inline script out
+	wp_add_inline_script( 'teleporter', $js );
 
 	// 1.0.6: added to fix dynamic links on iphones
 	if ( is_array( $dynamic_classes ) && !empty( $dynamic_classes ) && ( count( $dynamic_classes ) > 0 ) ) {
@@ -946,21 +1000,61 @@ add_action( 'wp_footer', 'teleporter_page_timeout_modal', 20 );
 function teleporter_page_timeout_modal() {
 	
 	$prompt = teleporter_get_setting( 'page_timeout_prompt' );
-	if ( 'yes' != $prompt ) {
+	// 1.1.3: return if disabled
+	if ( '' == $prompt ) {
 		return;
 	}
 
-	echo '<div id="teleporter-timeout-modal" style="display:none; text-align:center;">' . "\n";
-		echo '<div class="timeout-question">' . "\n";
-			$question = __( 'This page is taking a long time to load.', 'teleporter' );
-			$question .= ' ' . __( 'What would you like to do?', 'teleporter' );
-			$question = apply_filters( 'teleporter_timeout_prompt_question', $question );
-			echo esc_html( $question ) . "\n";
-		echo '</div><br>' . "\n";
-		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'view\');">' . esc_html( __( 'View Now', 'teleporter' ) ) . '</button>' . "\n";
-		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'retry\');">' . esc_html( __( 'Retry', 'teleporter' ) ) . '</button>' . "\n";
-		echo '<button class="button-small" style="display:inline-block;" onclick="teleporter_prompt_choice(\'cancel\');">' . esc_html( __( 'Cancel', 'teleporter' ) ) . '</button>' . "\n";
+	// --- user modal prompt ---
+	echo '<div id="teleporter-prompt-modal" class="teleporter-modal" style="display: none;">' . "\n";
+		echo '<div class="teleporter-prompt-question"></div><br>' . "\n";
+		echo '<button class="small-button button-small" onclick="teleporter_prompt_choice(\'view\');">' . esc_html( __( 'View Now', 'teleporter' ) ) . '</button>' . "\n";
+		echo '<button class="small-button button-small" onclick="teleporter_prompt_choice(\'retry\');">' . esc_html( __( 'Retry', 'teleporter' ) ) . '</button>' . "\n";
+		echo '<button class="small-button button-small" onclick="teleporter_prompt_choice(\'cancel\');">' . esc_html( __( 'Cancel', 'teleporter' ) ) . '</button>' . "\n";
 	echo '</div>' . "\n";
+
+	// 1.1.2: added questions for timeout/404/error
+	echo '<div id="teleporter-timeout-question" style="display:none;">' . "\n";
+		$question = __( 'The requested page is taking a long time to load.', 'teleporter' );
+		$question .= '<br>' . __( 'What would you like to do?', 'teleporter' );
+		$question = apply_filters( 'teleporter_timeout_prompt_question', $question );
+		if ( strstr( $question, '<br>' ) ) {
+			$parts = explode( '<br>', $question );
+			foreach ( $parts as $part ) {
+				echo esc_html( $part ) . '<br>' . "\n";
+			}
+		} else {
+			echo esc_html( $question ) . "\n";
+		}
+	echo '</div>' . "\n";
+	echo '<div id="teleporter-not-found-question" style="display:none;">' . "\n";
+		$question = __( 'The requested page was not found (404)', 'teleporter' );
+		$question .= '<br>' . __( 'What would you like to do?', 'teleporter' );
+		$question = apply_filters( 'teleporter_not_found_prompt_question', $question );
+		if ( strstr( $question, '<br>' ) ) {
+			$parts = explode( '<br>', $question );
+			foreach ( $parts as $part ) {
+				echo esc_html( $part ) . '<br>' . "\n";
+			}
+		} else {
+			echo esc_html( $question ) . "\n";
+		}
+	echo '</div>' . "\n";
+	echo '<div id="teleporter-error-question" style="display:none;">' . "\n";
+		$question = __( 'The requested page returned an error:', 'teleporter' );
+		$question .= '<br>"%s"<br>';
+		$question .= __( 'What would you like to do?', 'teleporter' );
+		$question = apply_filters( 'teleporter_error_prompt_question', $question );
+		if ( strstr( $question, '<br>' ) ) {
+			$parts = explode( '<br>', $question );
+			foreach ( $parts as $part ) {
+				echo esc_html( $part ) . '<br>' . "\n";
+			}
+		} else {
+			echo esc_html( $question ) . "\n";
+		}
+	echo '</div>' . "\n";
+
 }
 
 // ------------------------------
