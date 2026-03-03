@@ -5,8 +5,10 @@
 /* --- Set Default Settings --- */
 /* 1.0.0: added pageload timeout setting */
 /* 1.0.6: added existing definition check */
+/* 1.1.3: added prompton and externalize settings */
+/* 1.1.3: removed refresh setting as applied elsewhere */
 if (typeof teleporter == 'undefined') {
-	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': '', refresh: [] };
+	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, prompton: '404', externalize: true, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': '' };
 }
 
 /* --- Set Initial Variables --- */
@@ -42,7 +44,7 @@ function teleporter_transition_page(href) {
 				switchstate = teleporter_switch_state(i);
 				if (!switchstate) {return false;}
 				title = t_topwin.statetitles[i];
-				var obj = {id: i, title: title, url: link.href};
+				var obj = {id: i, title: title, url: href};
 				t_topwin.t_pushing = true;
 				if (typeof t_topwin.History == 'function') {t_topwin.History.replaceState(obj, title, href);}
 				else if (t_topwin.history) {t_topwin.history.replaceState(obj, title, href);}
@@ -70,102 +72,140 @@ function teleporter_transition_page(href) {
 function teleporter_transition_check(url, win) {
 
 	if (t_topwin.t_cancel) {return;}
-	href = null; iframe = null; topdoc = t_topwin.document;
-	if (t_topwin != win.self) {
-		/* 1.0.0: use here topdoc directly */
-		iframes = topdoc.getElementsByClassName(teleporter.iframe);
-		/* if (teleporter.debug) {console.log(iframes);} */
-		/* 1.0.0: allow for URL override via pageload timeout */
-		if (!url) {url = win.location.href;}
-		for (i = 0; i < iframes.length; i++) {
-			/* console.log(url+' - '+iframes[i].src); */
-			if (url == iframes[i].src) {iframe = iframes[i];}
+	if (t_topwin == win.self) {
+
+		/* this is the top (first) window */
+		href = t_topwin.location.href;
+		titletag = win.document.getElementsByTagName('title');
+		if (titletag.length) {title = titletag[0].innerHTML;} else {title = '';}
+		stateid = teleporter_push_state(href, title);
+		t_topwin.windowstateid = stateid;
+
+	} else {
+
+		/* any other subwindow iframe */
+		if (!url) {url = win.location.href; maybefirst = true;} else {maybefirst = false;}
+		titletag = win.document.getElementsByTagName('title');
+		if (titletag.length) {title = titletag[0].innerHTML;} else {title = '';}
+
+		/* set the browser URL (via pushstate) */
+		stateid = teleporter_push_state(url, title);
+		if (typeof t_topwin.windowstateid == 'undefined') {t_topwin.windowstateid = stateid;}
+
+		/* show the iframe */
+		if (typeof t_topwin.teleporter_show_iframe == 'function') {
+			t_topwin.teleporter_show_iframe(url, win, stateid);
 		}
-		if (!iframe) {
-			/* if (teleporter.debug) {console.log('No matching parent iframe found for '+win.location.href+' !');} */
-			return;
+		
+		/* check if first iframe */
+		if (maybefirst && (typeof t_topwin.teleporter_check_for_first_iframe == 'function')) {
+			t_topwin.teleporter_check_for_first_iframe(url, stateid);
 		}
-
-		if (iframe.src != t_topwin.location.href) {
-
-			/* maybe hide loading div */
-			teleporter_hide_loading();
-			/* if (teleporter.loading && topdoc.getElementById(teleporter.loading)) {
-	    		topdoc.getElementById(teleporter.loading).className = '';
-			} */
-
-			/* store top window body margin and padding */
-	    	body = topdoc.getElementsByTagName('body')[0];
-	    	if (!t_topwin.bodymargin) {t_topwin.bodymargin = body.style.margin;}
-	    	if (!t_topwin.bodypadding) {t_topwin.bodypadding = body.style.padding;}
-
-			/* remove parent margin and padding and set overflow hidden hide scrollbars */
-	    	body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
-
-			/* fade in or display parent iframe with current document */
-			if (iframe.style.display != 'block') {
-				if ((typeof t_topwin.jQuery == 'function') && teleporter.fadetime) {
-					t_topwin.jQuery(iframe).fadeIn(teleporter.fadetime);
-				} else {iframe.style.display = 'block';}
-			}
-			href = iframe.src;
-	    }
-	} else {href = win.location.href;}
-
-	/* set the browser URL (via pushstate) */
-	if (href) {
-		stateid = teleporter_push_state(href, win);
-		if (iframe) {iframe.setAttribute('id', teleporter.iframe+'-'+stateid);}
 	}
+}
+
+/* Check for first iframe via Top */
+/* 1.1.3: added to fix forward button disappearing after first back click */
+function teleporter_check_for_first_iframe(url, stateid) {
+	iframes = document.getElementsByClassName(teleporter.iframe);
+	if (iframes.length == 1) {
+		iframe = iframes[0];
+		if (!iframe.classList.contains('checked')) {
+			/* repush the state for first iframe (back/forth) */
+			teleporter_push_state(t_topwin.stateurls[0], t_topwin.statetitles[0]);
+			teleporter_push_state(t_topwin.stateurls[1], t_topwin.statetitles[1]);
+			iframe.classList.add('checked');
+		}
+	}
+}
+
+/* --- Show Iframe via Top --- */
+function teleporter_show_iframe(href, win, stateid) {
+
+	iframes = document.getElementsByClassName(teleporter.iframe);
+	/* if (teleporter.debug) {console.log(iframes);} */
+	for (i = 0; i < iframes.length; i++) {
+		/* console.log(href+' - '+iframes[i].src); */
+		if (href == iframes[i].src) {iframe = iframes[i];}
+	}
+	if (!iframe) {
+		if (teleporter.debug) {console.log('No matching iframe found for '+href+' !');}
+		return;
+	}
+
+	/* ? not sure if needed anymore */
+	/* if (href != t_topwin.location.href) */
+
+	/* maybe hide loading div */
+	teleporter_hide_loading();
+
+	/* store top window body margin and padding */
+	/* body = topdoc.getElementsByTagName('body')[0];
+	if (!t_topwin.bodymargin) {t_topwin.bodymargin = body.style.margin;}
+	if (!t_topwin.bodypadding) {t_topwin.bodypadding = body.style.padding;} */
+	/* remove parent margin and padding and set overflow hidden hide scrollbars */
+	/* body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden'; */
+	teleporter_window_body_store();
+
+	/* fade in or display parent iframe with current document */
+	if (iframe.style.display != 'block') {
+		if ((typeof t_topwin.jQuery == 'function') && teleporter.fadetime) {
+			t_topwin.jQuery(iframe).fadeIn(teleporter.fadetime);
+		} else {iframe.style.display = 'block';}
+	}
+	
+	/* set state id on iframe */
+	iframe.setAttribute('id', teleporter.iframe+'-'+stateid);
+	/* teleporter_switch_state(stateid); */
 }
 
 /* --- Push State --- */
 /* 1.0.0: separated function to allow for timeout usage */
-function teleporter_push_state(href, win) {
-		/* if (teleporter.debug) {console.log('Current State: '+t_topwin.currentstate);} */
-		titletag = win.document.getElementsByTagName('title');
-		if (titletag.length) {title = titletag[0].innerHTML;} else {title = '';}
-		if (typeof t_topwin.stateurls === 'undefined') {
-			t_topwin.windowstateid = 0; stateid = 0;
-			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
-			stateurls = []; stateurls[0] = href; t_topwin.stateurls = stateurls;
-			statetitles = []; statetitles[0] = title; t_topwin.statetitles = statetitles;
-		} else {
-			found = false;
-			for (i = 0; i < t_topwin.stateurls.length; i++) {
-				if (t_topwin.stateurls[i] == href) {found = true; stateid = i; title = t_topwin.statetitles[i];}
-			}
-			if (!found) {
-				stateid = t_topwin.stateurls.length;
-				/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
-				if ((t_topwin != win.self) && (typeof win.windowstateid == 'undefined') ) {
-					win.windowstateid = stateid;
-					/* if (teleporter.debug) {console.log(t_topwin.stateurls);} */
-					t_topwin.stateurls[stateid] = href;
-					t_topwin.statetitles[stateid] = title;
-				}
+function teleporter_push_state(href, title) {
+
+	/* if (teleporter.debug) {console.log('Current State: '+t_topwin.currentstate);} */
+	if (typeof t_topwin.stateurls === 'undefined') {
+		t_topwin.windowstateid = 0; stateid = 0;
+		/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+		stateurls = []; stateurls[0] = href; t_topwin.stateurls = stateurls;
+		statetitles = []; statetitles[0] = title; t_topwin.statetitles = statetitles;
+	} else {
+		found = false;
+		for (i = 0; i < t_topwin.stateurls.length; i++) {
+			if (t_topwin.stateurls[i] == href) {
+				found = true; stateid = i;
+				if (title) {t_topwin.statetitles[i] = title;}
+				else if (typeof t_topwin.statetitles[i] != 'undefined') {title = t_topwin.statetitles[i];}
 			}
 		}
-		/* if (teleporter.debug) {
-			console.log('Setting Window PushState');
-			console.log('ID: '+stateid+' - Title: '+title+' - URL: '+href);
-			console.log(t_topwin.stateurls); console.log(t_topwin.statetitles);
-		} */
-		var obj = {id: stateid, title: title, url: href};
-		t_topwin.t_pushing = true;
-		if (typeof t_topwin.History == 'function') {t_topwin.History.pushState(obj, title, href);}
-		else if (t_topwin.history) {t_topwin.history.pushState(obj, title, href);}
-		t_topwin.t_pushing = false;
-		teleporter_custom_event('teleporter-state-pushed', obj);
-		/* if (teleporter.debug) {
-			if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
-			else if (t_topwin.history) {console.log(t_topwin.history.state);}
-		} */
+		if (!found) {
+			stateid = t_topwin.stateurls.length;
+			t_topwin.stateurls[stateid] = href;
+			if (title) {t_topwin.statetitles[stateid] = title;} else {title = '';}
+			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+		}
+	}
 
-		t_topwin.currentstate = stateid;
-		/* if (teleporter.debug) {console.log('Set Current State: '+t_topwin.currentstate);} */
-		t_topwin.t_loaded = t_topwin.t_loading; t_topwin.t_loading = false;
-		return stateid;
+	/* if (teleporter.debug) {
+		console.log('Setting Window PushState');
+		console.log('ID: '+stateid+' - Title: '+title+' - URL: '+href);
+		console.log(t_topwin.stateurls); console.log(t_topwin.statetitles);
+	} */
+	var obj = {id: stateid, title: title, url: href};
+	t_topwin.t_pushing = true;
+	if (typeof t_topwin.History == 'function') {t_topwin.History.pushState(obj, title, href);}
+	else if (t_topwin.history) {t_topwin.history.pushState(obj, title, href);}
+	t_topwin.t_pushing = false;
+	teleporter_custom_event('teleporter-state-pushed', obj);
+	/* if (teleporter.debug) {
+		if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
+		else if (t_topwin.history) {console.log(t_topwin.history.state);}
+	} */
+
+	t_topwin.currentstate = stateid;
+	/* if (teleporter.debug) {console.log('Set Current State: '+t_topwin.currentstate);} */
+	t_topwin.t_loaded = t_topwin.t_loading; t_topwin.t_loading = false;
+	return stateid;
 }
 
 /* --- Show Loading Divs --- */
@@ -177,31 +217,58 @@ function teleporter_show_loading(href) {
 	t_topwin.t_loading = href;
 	setTimeout(function() {
 		if (!t_topwin.t_loading) {return;}
-		console.log('Page load timeout reached.');
+		if (teleporter.debug) {console.log('Page load timeout reached.');}
 		/* 1.1.2: prompt user to view, retry or cancel */
-		if ((typeof jQuery == 'function') && jQuery.ui && jQuery.ui.dialog && jQuery('#teleporter-timeout-modal'.length)) {
-			jQuery('#teleporter-timeout-modal').dialog({ modal:true, width:300, dialogClass: 'teleporter-dialog', position: {my: 'center top', at: 'center top+80', of: window } });
-			var teleporter_timeout_check; clearInterval(teleporter_timeout_check);
-			teleporter_timeout_check = setInterval(function() {
-				if (!t_topwin.t_loading) {
-					jQuery('#teleporter-timeout-modal').dialog('close');
-					clearInterval(teleporter_timeout_check);
+		doprompt = false; prompton = teleporter.prompton;
+		if ((prompton == 'yes') || (prompton == '404t') || (prompton == 'all')) {doprompt = true;}
+		if (doprompt && (typeof jQuery == 'function') && jQuery.ui && jQuery.ui.dialog && jQuery('#teleporter-prompt-modal'.length)) {
+			/* 1.1.3: give an extra few seconds before prompting */
+			setTimeout(function() {
+				/* 1.1.3: allow for error checking */
+				if (!jQuery('#teleporter-prompt-modal').hasClass('error')) {
+					question = jQuery('#teleporter-timeout-question').html();
+					jQuery('#teleporter-prompt-modal .teleporter-prompt-question').html(question);
+					jQuery('#teleporter-prompt-modal').addClass('timeout').dialog({ modal:true, width:300, dialogClass: 'teleporter-dialog', position: {my: 'center top', at: 'center top+80', of: window } });
+
+					var teleporter_timeout_check; clearInterval(teleporter_timeout_check);
+					teleporter_timeout_check = setInterval(function() {
+						if (jQuery('#teleporter-prompt-modal').hasClass('error')) {clearInterval(teleporter_timeout_check);}
+						if (!t_topwin.t_loading) {
+							jQuery('#teleporter-prompt-modal').removeClass('timeout').removeClass('error');
+							if (jQuery('#teleporter-prompt-modal').data('ui-dialog')) {
+								jQuery('#teleporter-prompt-modal').dialog('close');
+							}
+							clearInterval(teleporter_timeout_check);
+						}
+					}, 250);
 				}
-			}, 500);
-		} else {teleporter_prompt_choice('view');}
+			}, 2000);
+		} else {
+			teleporter_prompt_choice('view');
+		}
 
 	}, teleporter.timeout);
 
 	/* maybe show the loading div */
 	if (!teleporter.loading) {return;}
-	topdoc = t_topwin.document;
-	topdoc.getElementsByTagName('body')[0].classList.add('teleporter-loading');
-	topdoc.getElementById(teleporter.loading).classList.add('reset');
+	
+	/* 1.1.3: trigger show loading function in top window */
+	if (typeof t_topwin.teleporter_show_loading_via_top == 'function') {
+		t_topwin.teleporter_show_loading_via_top();
+	}
+	
+}
+
+/* --- Show Loading via Top Window --- */
+function teleporter_show_loading_via_top() {
+	
+	document.getElementsByTagName('body')[0].classList.add('teleporter-loading');
+	document.getElementById(teleporter.loading).classList.add('reset');
 	setTimeout(function() {
-		topdoc.getElementById(teleporter.loading).classList.remove('reset');
-		topdoc.getElementById(teleporter.loading).classList.add('loading');
+		document.getElementById(teleporter.loading).classList.remove('reset');
+		document.getElementById(teleporter.loading).classList.add('loading');
 	}, 250);
-	iframes = topdoc.getElementsByClassName(teleporter.iframe);
+	iframes = document.getElementsByClassName(teleporter.iframe);
 	for (i = 0; i < iframes.length; i++) {
 		doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
 		if (doc.getElementById(teleporter.loading)) {
@@ -220,15 +287,22 @@ function teleporter_show_loading(href) {
 		}
 	}, 250);
 }
-
+	
 /* --- Hide Loading Divs --- */
 function teleporter_hide_loading() {
 	if (!teleporter.loading) {return;}
-	topdoc = t_topwin.document;
-	topdoc.getElementById(teleporter.loading).classList.remove('loading');
-	topdoc.getElementById(teleporter.loading).classList.remove('reset');
-	topdoc.getElementsByTagName('body')[0].classList.remove('teleporter-loading');
-	iframes = topdoc.getElementsByClassName(teleporter.iframe);
+	/* 1.1.3: trigger show loading function in top window */
+	if (typeof t_topwin.teleporter_hide_loading_via_top == 'function') {
+		t_topwin.teleporter_hide_loading_via_top();
+	} else {console.log('Hide loading function not found.');}
+}
+
+/* Hide Loading via Top Window */
+function teleporter_hide_loading_via_top() {
+	document.getElementById(teleporter.loading).classList.remove('loading');
+	document.getElementById(teleporter.loading).classList.remove('reset');
+	document.getElementsByTagName('body')[0].classList.remove('teleporter-loading');
+	iframes = document.getElementsByClassName(teleporter.iframe);
 	for (i = 0; i < iframes.length; i++) {
 		doc = iframes[i].contentDocument || iframes[i].contentWindow.document;
 		body = doc.getElementsByTagName('body')[0];
@@ -243,31 +317,23 @@ function teleporter_hide_loading() {
 
 /* Timeout Prompt Response Handler */
 function teleporter_prompt_choice(choice) {
-	jQuery('#teleporter-timeout-modal').dialog('close');
+	jQuery('#teleporter-prompt-modal').removeClass('timeout').removeClass('error');
+	if (jQuery('#teleporter-prompt-modal').data('ui-dialog')) {
+		jQuery('#teleporter-prompt-modal').dialog('close');
+	}
 	if (!t_topwin.t_loading) {return;}
-	href = t_topwin.t_loading; console.log(href);
+	href = t_topwin.t_loading; /* console.log(href); */
 	if (choice == 'view') {
 		if (teleporter.debug) {console.log('Displaying URL: '+href);}
-		iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
-		for (i = 0; i < iframes.length; i++) {
-			if (href == iframes[i].src) {iframe = iframes[i];}
+		if (typeof t_topwin.teleporter_view_page == 'function') {
+			t_topwin.teleporter_view_page(href);
 		}
-		if (!iframe) {return;}
-		win = iframe.contentWindow;
-		teleporter_transition_check(href, win);
 	}
 	if ((choice == 'retry') || (choice == 'cancel')) {
 		t_topwin.t_cancel = true; t_topwin.t_loading = false;
 		teleporter_hide_loading();
-		iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
-		for (i = 0; i < iframes.length; i++) {
-			if (href == iframes[i].src) {iframe = iframes[i];}
-		}
-		if (!iframe) {return;}
-		iframe.parentElement.removeChild(iframe);
-		stateurls = t_topwin.stateurls; statetitles = t_topwin.statetitles;
-		for (i = stateurls.length - 1; i >= 0; i--) {
-			if (stateurls[i] == href) {stateurls.splice(i,1); statetitles.splice(i,1);}
+		if (typeof t_topwin.teleporter_cancel_loading == 'function') {
+			t_topwin.teleporter_cancel_loading(href);
 		}
 	}
 	if (choice == 'retry') {
@@ -275,6 +341,31 @@ function teleporter_prompt_choice(choice) {
 		teleporter_transition_page(href);
 	} else if (choice == 'cancel') {
 		if (teleporter.debug) {console.log('Cancelled Page Transition.');}
+	}
+}
+
+/* --- View Page via Top --- */
+function teleporter_view_page(href) {
+	iframes = document.getElementsByClassName(teleporter.iframe);
+	for (i = 0; i < iframes.length; i++) {
+		if (href == iframes[i].src) {iframe = iframes[i];}
+	}
+	if (!iframe) {return;}
+	win = iframe.contentWindow;
+	teleporter_transition_check(href, win);
+}
+
+/* --- Cancel Loading (and Remove) via Top --- */
+function teleporter_cancel_loading(href) {
+	iframes = document.getElementsByClassName(teleporter.iframe);
+	for (i = 0; i < iframes.length; i++) {
+		if (href == iframes[i].src) {iframe = iframes[i];}
+	}
+	if (!iframe) {return;}
+	iframe.parentElement.removeChild(iframe);
+	stateurls = t_topwin.stateurls; statetitles = t_topwin.statetitles;
+	for (i = stateurls.length - 1; i >= 0; i--) {
+		if (stateurls[i] == href) {stateurls.splice(i,1); statetitles.splice(i,1);}
 	}
 }
 
@@ -304,6 +395,8 @@ function teleporter_add_popstate_checker() {
 
 /* --- Popstate Event Checker --- */
 function teleporter_popstate_checker(event) {
+	
+	/* if (teleporter.debug) {console.log(event);} */
 
 	/* ignore initial popstate that some browsers fire on page load */
 	/* ref: https://stackoverflow.com/a/17176274/5240159 */
@@ -327,7 +420,7 @@ function teleporter_popstate_checker(event) {
 	/* get event history state */
 	stateid = null;
 	/* if (teleporter.debug) {if (event.state) {console.log('History Event State:'); console.log(event);} } */
-	if  (typeof t_topwin.History != 'undefined') {
+	if (typeof t_topwin.History != 'undefined') {
 		state = t_topwin.History.getState();
 		if (state.data.id) {stateid = state.data.id;}
 		else {
@@ -371,7 +464,8 @@ function teleporter_popstate_checker(event) {
 				/* lost from history so just load it */
 				teleporter_transition_page(state.url);
 			}
-			return;
+			
+			/* return false; */
 		/* }*/
 	}
 
@@ -380,6 +474,7 @@ function teleporter_popstate_checker(event) {
 	if (event.stopImmediatePropagation) {event.stopImmediatePropagation();}
 	switchstate = teleporter_switch_state(stateid);
 	if (!switchstate) {return false;}
+	return true;
 }
 
 /* --- Switch Page State --- */
@@ -395,8 +490,71 @@ function teleporter_switch_state(stateid) {
 	/* if (teleporter.debug) {console.log('Switching to State ID: '+stateid+' (Current State: '+t_topwin.currentstate+')');} */
 	teleporter_custom_event('teleporter-switch-state', {stateid: stateid});
 
+	/* 1.1.3: switch to top window check earlier */
+	if (t_topwin.windowstateid == stateid) {
+		win = t_topwin;
+		if (typeof t_topwin.teleporter_switch_to_top == 'function' ) {
+			continuing = t_topwin.teleporter_switch_to_top(stateid);
+			if (!continuing) {return false;} /* on reload */
+		}
+	} else {	
+		if (typeof t_topwin.teleporter_switch_to_iframe == 'function' ) {
+			continuing = t_topwin.teleporter_switch_to_iframe(stateid);
+			if (!continuing) {return false;} /* iframe not found */
+		}
+	}
+
+	/* set current state */
+	t_topwin.currentstate = stateid;
+	/* if (teleporter.debug) {console.log('New Current State: '+t_topwin.currentstate);} */
+
+	teleporter_custom_event('teleporter-transitioned', {stateid: stateid});
+}
+
+/* --- Switch to Top State --- */
+function teleporter_switch_to_top(stateid) {
+
+	href = stateurls[stateid];
+	body = document.getElementsByTagName('body')[0];
+
+	/* 1.0.8: maybe refresh top window contents */
+	if (body.hasAttribute('teleporter-refresh')) {
+		/* if (teleporter.debug) {console.log('Reloading Top Window: '+href);} */
+		/* 1.1.3: push state before reload */
+		teleporter_push_state(href, false);
+		if (t_topwin.location.href == href) {t_topwin.location.reload();}
+		else {t_topwin.location.href = href;}
+		return false;
+	}
+
+	/* restore top window view */
+	/* body.style.margin = t_topwin.bodymargin;
+	body.style.padding = t_topwin.bodypadding;
+	body.style.overflow = 'scroll'; */
+	/* if (teleporter.debug) {console.log('Restoring First Page State');} */
+	teleporter_window_body_restore();
+	teleporter_set_window_title(t_topwin.statetitles[stateid]);
+
+	iframes = document.getElementsByClassName(teleporter.iframe);
+	for (i = 0; i < iframes.length; i++) {
+		/* if (teleporter.debug) {console.log('Hiding All Iframes');} */
+		if (iframes[i].style.display != 'none') {
+			if ((typeof jQuery == 'function') && teleporter.fadetime) {
+				/* 1.1.2: halve fade time for existing window */
+				fadetime = parseInt(teleporter.fadetime / 2);
+				jQuery(iframes[i]).fadeOut(fadetime);
+			} else {iframes[i].style.display = 'none';}
+		}
+	}
+	
+	teleporter_push_state(href, false);
+	return true;
+}
+
+function teleporter_switch_to_iframe(stateid) {
+
 	/* get all iframes */
-	iframes = t_topwin.document.getElementsByClassName(teleporter.iframe);
+	iframes = document.getElementsByClassName(teleporter.iframe);
 	/* if (teleporter.debug) {console.log(iframes);} */
 	iframe = false;
 	for (i = 0; i < iframes.length; i++) {
@@ -414,37 +572,7 @@ function teleporter_switch_state(stateid) {
 		}
 	}
 
-	if (t_topwin.windowstateid == stateid) {
-
-		win = window.top;
-		body = t_topwin.document.getElementsByTagName('body')[0];
-
-		/* 1.0.8: maybe refresh top window contents */
-		if (body.hasAttribute('teleporter-refresh')) {
-			href = stateurls[stateid];
-			/* if (teleporter.debug) {console.log('Reloading Top Window: '+href);} */
-			if (t_topwin.location.href == href) {t_topwin.location.reload();}
-			else {t_topwin.location.href = href;}
-			return false;
-		}
-
-		/* restore top window view */
-		/* if (teleporter.debug) {console.log('Restoring First Page State');} */
-		body.style.margin = t_topwin.bodymargin;
-		body.style.padding = t_topwin.bodypadding;
-		body.style.overflow = 'scroll';
-		for (i = 0; i < iframes.length; i++) {
-			/* if (teleporter.debug) {console.log('Hiding All Iframes');} */
-			if (iframes[i].style.display != 'none') {
-				if ((typeof jQuery == 'function') && teleporter.fadetime) {
-					/* 1.1.2: halve fade time for existing window */
-					fadetime = parseInt(teleporter.fadetime / 2);
-					jQuery(iframes[i]).fadeOut(fadetime);
-				} else {iframes[i].style.display = 'none';}
-			}
-		}
-
-	} else if (iframe) {
+	if (iframe) {
 
 		/* set iframe scroll styles */
 		/* doc = iframe.contentDocument || iframe.contentWindow.document;
@@ -452,9 +580,10 @@ function teleporter_switch_state(stateid) {
 		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'scroll'; */
 
 		/* set top window to passthrough view */
-		body = t_topwin.document.getElementsByTagName('body')[0];
-		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
+		/* body = t_topwin.document.getElementsByTagName('body')[0];
+		body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden'; */
 		/* if (teleporter.debug) {console.log('Removed Margins, Padding and Scroll on Top Window');} */
+		t_topwin.teleporter_window_body_full();
 
 		/* hide other iframes */
 		for (i = 0; i < iframes.length; i++) {
@@ -468,40 +597,105 @@ function teleporter_switch_state(stateid) {
 			}
 		}
 
-		/* display the iframe */
+		/* display this iframe */
 		if ((typeof jQuery == 'function') && teleporter.fadetime) {
 			/* 1.1.2: halve fade time for existing iframe */
 			fadetime = parseInt(teleporter.fadetime / 2);
 			jQuery(iframe).fadeIn(fadetime);
 		} else {iframe.style.display = 'block';}
+
+		/* set top window title */
+		/* t_topwin.document.title = t_topwin.statetitles[stateid]; */
+		teleporter_set_window_title(t_topwin.statetitles[stateid]);
+		
+		/* 1.0.8: push new state */
+		href = t_topwin.stateurls[stateid];
+		teleporter_push_state(href, false);
+		
+		return true;
 	}
+	return false;
+}
 
-	/* set top window state and title */
-	t_topwin.document.title = t_topwin.statetitles[stateid];
-	t_topwin.currentstate = stateid;
-	/* if (teleporter.debug) {console.log('New Current State: '+t_topwin.currentstate);} */
+/* --- Set Window Title --- */
+function teleporter_set_window_title(title) {
+	document.title = title;
+}
 
-	/* 1.0.8: push new state */
-	href = t_topwin.stateurls[stateid];
-	teleporter_push_state(href, win);
+/* --- Set Window Body Full */
+function teleporter_window_body_full() {
+	body = document.getElementsByTagName('body')[0];
+	/* remove parent margin and padding and set overflow hidden hide scrollbars */
+	body.style.margin = '0'; body.style.padding = '0'; body.style.overflow = 'hidden';
+}
 
-	teleporter_custom_event('teleporter-transitioned', {stateid: stateid});
+/* --- Store Window Body --- */
+function teleporter_window_body_store() {
+	/* store top window body margin and padding */
+	body = document.getElementsByTagName('body')[0];
+	if (!t_topwin.bodymargin) {t_topwin.bodymargin = body.style.margin;}
+	if (!t_topwin.bodypadding) {t_topwin.bodypadding = body.style.padding;}
+	teleporter_window_body_full();
+}
+
+/* --- Restore Window Body --- */
+function teleporter_window_body_restore() {
+	body = document.getElementsByTagName('body')[0];
+	body.style.margin = t_topwin.bodymargin;
+	body.style.padding = t_topwin.bodypadding;
+	body.style.overflow = 'scroll';
 }
 
 /* --- Add (Missing) Transition Iframe --- */
-function teleporter_add_iframe(src) {
+function teleporter_add_iframe(href) {
+	teleporter_push_state(href, false);
+	if (typeof t_topwin.teleport_add_iframe_via_top == 'function') {
+		return t_topwin.teleport_add_iframe_via_top(href);
+	}
+}
+
+/* --- Add Transition Iframe via Top */
+function teleport_add_iframe_via_top(href) {
+	teleporter_check_url(href);
 	iframe = document.createElement('iframe');
 	iframe.setAttribute('class', teleporter.iframe);
 	iframe.setAttribute('name', teleporter.iframe);
-	iframe.setAttribute('src', src);
+	iframe.setAttribute('src', href);
 	iframe.setAttribute('width', '100%');
 	iframe.setAttribute('height', '100%');
 	iframe.setAttribute('frameborder', '0');
 	iframe.setAttribute('scrolling', 'auto');
 	iframe.setAttribute('allowfullscreen', 'true');
 	iframe.setAttribute('style', 'display:none;');
-	t_topwin.document.getElementsByTagName('body')[0].appendChild(iframe);
+	document.getElementsByTagName('body')[0].appendChild(iframe);
 	return iframe;
+}
+
+/* --- Check URL --- */
+function teleporter_check_url(url) {
+	if (!jQuery('#teleporter-prompt-modal').length) {return;}
+	fetch(url, {method: 'HEAD'}).then(response => {
+		if (!response.ok) {
+			if (teleporter.debug) {console.log(response.status+': '+response.statusText);}
+			doprompt = false; prompton = teleporter.prompton;
+			if (404 == response.status) {
+				if ((prompton == '404') || (prompton == '404t') || (prompton == 'all')) {doprompt = true;}
+				question = jQuery('#teleporter-not-found-question').html();
+			} else {
+				if (prompton == 'all') {doprompt = true;}
+				question = jQuery('#teleporter-error-question').html();
+			}
+			jQuery('#teleporter-prompt-modal .teleporter-prompt-question').html(question);
+			jQuery('#teleporter-prompt-modal').removeClass('timeout').addClass('error').dialog({ modal:true, width:300, dialogClass: 'teleporter-dialog', position: {my: 'center top', at: 'center top+80', of: window } });
+			var teleporter_error_check; clearInterval(teleporter_error_check);
+			teleporter_error_check = setInterval(function() {
+				if (!t_topwin.t_loading) {
+					jQuery('#teleporter-prompt-modal').removeClass('timeout').removeClass('error').dialog('close');
+					clearInterval(teleporter_error_check);
+				}
+			}, 250);
+		} else if (teleporter.debug) {console.log('Response OK for URL:' +url);}
+	}).catch(error => {console.error('Error fetching URL:', error);});
 }
 
 /* --- Check link element link --- */
@@ -534,7 +728,8 @@ function teleporter_skip_link(el) {
 	u = el.href; skip = true;
 
 	/* 1.0.1: always treat javascript, mailto and tel at position 0 as external */
-	if ((u.indexOf('javascript') === 0) || (u.indexOf('mailto') === 0) || (u.indexOf('tel') === 0)) {return true;}
+	/* 1.1.3: added sms prefix to ignore also */
+	if ((u.indexOf('javascript') === 0) || (u.indexOf('mailto') === 0) || (u.indexOf('tel') === 0) || (u.indexOf('sms') === 0)) {return true;}
 
 	/* treat hash or query at position 0 as internal */
 	if ((u.indexOf('#') === 0) || (u.indexOf('?') === 0)) {skip = false;}
@@ -560,10 +755,40 @@ function teleporter_skip_link(el) {
 	return skip;
 }
 
-/* --- Remove Window State ID on Unload --- */
-addEventListener('unload', function(event) {
-	t_topwin.windowstateid = 'undefined';
-}, false);
+/* maybe Force External to New Window */
+/* 1.1.3: added this check */
+function teleporter_maybe_externalize(el) {
+	
+	/* ignore links with a target already set */
+	if ((typeof el.target != 'undefined') && (el.target != '')) {return 1;}
+
+	/* ignore an undefined/empty href */
+	if ((typeof el.href == 'undefined') || (el.href == '')) {return 2;}
+
+	/* set href shortname */
+	u = el.href;
+
+	/* 1.0.1: always treat javascript, mailto and tel at position 0 as external */
+	if ((u.indexOf('javascript') === 0) || (u.indexOf('mailto') === 0) || (u.indexOf('tel') === 0) || (u.indexOf('sms') === 0)) {return 3;}
+
+	/* treat hash or query at position 0 as internal */
+	if ((u.indexOf('#') === 0) || (u.indexOf('?') === 0)) {return 4;}
+
+	/* check against site URL */
+	if ((teleporter.siteurl != '') && (u.indexOf(teleporter.siteurl) === 0)) {return 5;}
+
+	/* check against host/protocol */
+	if (el.host == t_topwin.location.host) {
+		a = t_topwin.location.protocol+'//'+t_topwin.location.host;
+		b = '//'+t_topwin.location.host;
+		if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {return 6;}
+	}
+
+	/* set target to _blank to open in new window */
+	if (teleporter.debug) {console.log('Found external URL: '+u);}
+	el.setAttribute('target', '_blank');
+	return false;
+}
 
 /* --- Get Top Window (Accessible) --- */
 function teleporter_top_window() {
@@ -601,9 +826,12 @@ function teleporter_add_link_events() {
 			/* ev = jQuery._data(el, 'events');
 			if (ev && ev.click && teleporter.debug) {console.log(ev.click);} */
 			/* 1.1.0: click event handlers now checked in teleporter_skip_link */
-			el.setAttribute('teleporter', '1');
+			el.setAttribute('teleporter','1');
 			/* 1.0.4: add event listener to append to existing events */
 			teleporter_add_link_event(el);
+		} else if (teleporter.externalize) {
+			code = teleporter_maybe_externalize(el);
+			if (code && teleporter.debug) {console.log(el.href+': '+code);}
 		}
 	});
 }
@@ -615,8 +843,11 @@ function teleporter_add_links_in_element(el_id) {
 		el = jQuery(this)[0];
 		skip = teleporter_skip_link(el);
 		if (!skip) {
-			el.setAttribute('teleporter', '1');
+			el.setAttribute('teleporter','1');
 			teleporter_add_link_event(el);
+		} else if (teleporter.externalize) {
+			code = teleporter_maybe_externalize(el);
+			if (code && teleporter.debug) {console.log(el.href+': '+code);}
 		}
 	});
 }
@@ -628,8 +859,11 @@ function teleporter_add_links_in_class(classname) {
 		el = jQuery(this)[0];
 		skip = teleporter_skip_link(el);
 		if (!skip) {
-			el.setAttribute('teleporter', '1');
+			el.setAttribute('teleporter','1');
 			teleporter_add_link_event(el);
+		} else if (teleporter.externalize) {
+			code = teleporter_maybe_externalize(el);
+			if (code && teleporter.debug) {console.log(el.href+': '+code);}
 		}
 	});
 }
@@ -662,6 +896,9 @@ function teleporter_add_link_onclicks() {
 				e.preventDefault();
 				return teleporter_transition_page(e.target.href);
 			}); */
+		} else if (teleporter.externalize) {
+			code = teleporter_maybe_externalize(el);
+			if (code && teleporter.debug) {console.log(el.href+': '+code);}
 		}
 	}
 }
@@ -671,7 +908,6 @@ function teleporter_add_link_onclick(el) {
 	/* TODO: set click event instead of attribute? */
 	el.setAttribute('onclick', 'return teleporter_transition_link(this);');
 }
-
 
 /* --- Add Dynamic Link Clicks --- */
 /* 1.0.4: added event delegation clicks for dynamic link classes */
@@ -721,7 +957,7 @@ if (typeof window.jQuery !== 'undefined') {
 		teleporter_add_popstate_checker();
 
 		/* 1.0.4: try to account for links added later */
-		setTimeout(function() {teleporter_add_link_events();;}, 5000);
+		setTimeout(function() {teleporter_add_link_events();}, 5000);
 	});
 
 } else {
@@ -770,6 +1006,7 @@ if (typeof window.jQuery !== 'undefined') {
 		/* loop all links to add onclick attribute */
 		teleporter_custom_event('teleporter-check-links', false);
 		teleporter_add_link_onclicks();
+		/* teleporter_dynamic_link_clicks(); (currently jQuery only) */
 		teleporter_custom_event('teleporter-links-checked', false);
 
 		teleporter_transition_check(false, window);
@@ -799,6 +1036,11 @@ function teleporter_custom_event(name, detail) {
 	window.CustomEvent = CustomEvent;
 })();
 
+/* --- Remove Window State ID on Unload --- */
+addEventListener('unload', function(event) {
+	t_topwin.windowstateid = 'undefined';
+}, false);
+
 /* --- Detect Escape Key Press --- */
 /* ref: https://stackoverflow.com/a/64446856 */
 document.addEventListener('keydown', (event) => {
@@ -809,6 +1051,10 @@ document.addEventListener('keydown', (event) => {
 			t_topwin.t_cancel = true; /* cancel transition check */
 			t_topwin.t_loading = false; /* cancels loader timeout */
 			teleporter_hide_loading();
+			/* 1.1.3: close dialog if open */
+			if (jQuery('#teleporter-prompt-modal').data('ui-dialog')) {
+				jQuery('#teleporter-prompt-modal').dialog('close');
+			}
         }
     }
 });
