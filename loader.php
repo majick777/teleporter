@@ -5,7 +5,7 @@
 // =================================
 
 // -------------
-// Loader v1.3.7
+// Loader v1.3.8
 // -------------
 // Note: Changelog at end of file.
 
@@ -55,7 +55,7 @@ if ( !defined( 'ABSPATH' ) ) exit;
 // Loader Usage
 // ============
 // 1. replace all occurrences of teleporter_ in this file with the plugin namespace prefix eg. my_plugin_
-// 2. replace all occurrences of 'radio-station' in this file with the plugin's translation text domain
+// 2. replace all occurrences of 'teleporter' in this file with the plugin's translation text domain
 // 2. define plugin options, default settings, and setup arguments your main plugin file
 // 3. require this file in the main plugin file and instantiate the loader class (see example below)
 //
@@ -99,11 +99,11 @@ if ( !defined( 'ABSPATH' ) ) exit;
 //	'parentmenu'	=> 'wordquest',		// parent menu slug
 //	'home'			=> 'http://mysite.com/plugins/plugin/',
 //	'support'		=> 'http://mysite.com/plugins/plugin/support/',
-//	'ratetext'		=> __( 'Rate on WordPress.org', 'radio-station' ),		// (overrides default rate text)
+//	'ratetext'		=> __( 'Rate on WordPress.org', 'teleporter' ),		// (overrides default rate text)
 //	'share'			=> 'http://mysites.com/plugins/plugin/#share', // (set sharing URL)
-//	'sharetext'		=> __( 'Share the Plugin Love', 'radio-station' ),		// (overrides default sharing text)
+//	'sharetext'		=> __( 'Share the Plugin Love', 'teleporter' ),		// (overrides default sharing text)
 //	'donate'		=> 'https://patreon.com/pagename',	// (overrides plugin Donate URI)
-//	'donatetext'	=> __( 'Support this Plugin', 'radio-station' ),		// (overrides default donate text)
+//	'donatetext'	=> __( 'Support this Plugin', 'teleporter' ),		// (overrides default donate text)
 //	'readme'		=> false,			// to not link to popup readme in settings page header
 //	'settingsmenu'	=> false,			// to not automatically add a settings menu [non-WQ]
 //
@@ -126,22 +126,6 @@ if ( !defined( 'ABSPATH' ) ) exit;
 //	'plan'			=> 'free',	 		// * rechecked later (if premium version found) *
 // );
 
-// 1.3.7: Translated String Settings Update Note
-// ---------------------------------------------
-// Since loader is typically initiated directly within a plugin, this means string translations are too early.
-// Fix is to remove the translated strings (ratetext, sharetext, donatetext) to a later filter added for this purpose:
-/*
-add_filter( 'teleporter_admin_args', 'teleporter_settings_texts' );
-function teleporter_settings_texts( $args ) {
-	$texts = array(
-		'sharetext'    => __( 'Share the Plugin Love', 'radio-station' ),
-		'ratetext'     => __( 'Rate on WordPress.org', 'radio-station' ),
-		'donatetext'   => __( 'Support this Plugin', 'radio-station' ),
-	);
-	$args = array_merge( $args, $texts );
-	return $args;
-} */
-
 // ------------------------------------
 // Example Start Plugin Loader Instance
 // ------------------------------------
@@ -150,6 +134,47 @@ function teleporter_settings_texts( $args ) {
 // $instance = new teleporter_loader($args);				// instantiates loader class
 // (ie. search and replace all 'teleporter_' with 'my_plugin_' function namespace)
 // and then search and replace 'text-domain' with your plugin's text domain.
+
+
+// ---------------------------------------------
+// 1.3.7: Translated String Settings Update Note
+// ---------------------------------------------
+// Since loader is typically initiated directly within a plugin, this means string translations are "too early".
+// A little bit of an annoying WordPress quirk to have to get around but it is achieved with the following steps:
+
+// 1. Fix is to remove the translated strings (ratetext, sharetext, donatetext) to a later filter added for this purpose:
+/*
+add_filter( 'teleporter_admin_args', 'teleporter_settings_texts' );
+function teleporter_settings_texts( $args ) {
+	$texts = array(
+		'sharetext'    => __( 'Share the Plugin Love', 'teleporter' ),
+		'ratetext'     => __( 'Rate on WordPress.org', 'teleporter' ),
+		'donatetext'   => __( 'Support this Plugin', 'teleporter' ),
+	);
+	$args = array_merge( $args, $texts );
+	return $args;
+} */
+
+// 2. Instead of passing options directly to the loader, create a function with an admin argument.
+// eg. function teleporter_get_options( $admin ) {}
+// and translate any labels or helpers values conditionally using an inline if statement, ie. ? and :
+// 'label' => __( 'Label Test', 'teleporter' ),
+// becomes
+// 'label' => $admin ? __( 'Label Test', 'teleporter' ) : '',
+
+// 3. Then add a filter that runs after the main plugin loader is instantiated:
+/* 
+add_filter( 'teleporter_plugin_options', 'teleporter_get_options' );
+add_action( 'plugins_loaded', 'teleporter_admin_options_init' );
+function teleporter_admin_options_init() {
+	add_filter( 'radio-station_options', 'teleporter_admin_options' );
+	function teleporter_admin_options( $options ) {
+		$admin = is_admin();
+		$options = teleporter_get_options( $admin );
+		return $options;
+	}
+}
+*/
 
 
 // ===========================
@@ -203,7 +228,9 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 			// --- set plugin options ---
 			// 1.0.6: added options filter
+			// 1.3.8: fix to set class options on construct
 			$args['options'] = apply_filters( $args['namespace'] . '_options', $args['options'] );
+			$this->options = $args['options'];
 
 			// --- set plugin args and namespace ---
 			// 1.1.9: filter all arguments
@@ -606,373 +633,374 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				foreach ( $options as $key => $values ) {
 
 					// --- get option type and options ---
-					$type = $values['type'];
-					$valid = $validate_args = array();
-					if ( isset( $values['options'] ) ) {
-						$valid = $values['options'];
-					}
-
-					// --- get posted value ---
-					// 1.0.6: set null value for unchecked checkbox fix
-					// 1.2.5: moved get posted value to within each type with sanitization
-					$postkey = $args['settings'] . '_' . $key;
-					$newsettings = null;
-
-					// --- maybe validate special options ---
-					// 1.0.9: check for special options to prepare
-					if ( is_string( $valid ) ) {
-
-						// --- maybe get public post type slugs ---
-						if ( in_array( $valid, array( 'PUBLICTYPE', 'PUBLICTYPES' ) ) ) {
-							$valid = array();
-							if ( !isset( $public ) ) {
-								$cpts = array( 'page', 'post' );
-								$cptargs = array( 'public' => true, '_builtin' => false );
-								$cptlist = get_post_types( $cptargs, 'names', 'and' );
-								$public = array_merge( $cpts, $cptlist );
-							}
-							foreach ( $public as $cpt ) {
-								$valid[$cpt] = '';
-							}
+					if ( isset( $values['type'] ) ) {
+						$type = $values['type'];
+						$valid = $validate_args = array();
+						if ( isset( $values['options'] ) ) {
+							$valid = $values['options'];
 						}
 
-						// --- maybe get post type slugs ---
-						if ( in_array( $valid, array( 'POSTTYPE', 'POSTTYPES' ) ) ) {
-							$valid = array();
-							if ( !isset( $cpts ) ) {
-								$cpts = array( 'page', 'post' );
-								$cptargs = array( 'public' => true, '_builtin' => false );
-								$cptlist = get_post_types( $cptargs, 'names', 'and' );
-								$cpts = array_merge( $cpts, $cptlist );
-							}
-							foreach ( $cpts as $cpt ) {
-								$valid[$cpt] = '';
-							}
-						}
+						// --- get posted value ---
+						// 1.0.6: set null value for unchecked checkbox fix
+						// 1.2.5: moved get posted value to within each type with sanitization
+						$postkey = $args['settings'] . '_' . $key;
+						$newsettings = null;
 
-						// --- maybe get all post type slugs ---
-						if ( in_array( $valid, array( 'ALLTYPE', 'ALLTYPES' ) ) ) {
-							$valid = array();
-							if ( !isset( $allcpts ) ) {
-								$cptargs = array( '_builtin' => false );
-								$allcpts = get_post_types( $cptargs, 'names', 'and' );
-							}
-							foreach ( $allcpts as $cpt ) {
-								$valid[$cpt] = '';
-							}
-						}
-					}
-
-					if ( $this->debug ) {
-						// phpcs:ignore WordPress.PHP.DevelopmentFunctions
-						echo 'Saving Setting Key ' . esc_html( $key ) . ' (' . esc_html( $postkey ) . ')<br>' . "\n";
-						// phpcs:ignore WordPress.PHP.DevelopmentFunctions
-						echo 'Type: ' . esc_html( $type ) . ' - Valid Options ' . esc_html( $key ) . ': ' . esc_html( print_r( $valid, true ) ) . '<br>' . "\n";
-					}
-
-					// --- sanitize value according to type ---
-					if ( strstr( $type, '/' ) ) {
-
-						// --- implicit radio / select ---
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						$valid = explode( '/', $type );
-						if ( in_array( $posted, $valid ) ) {
-							$settings[$key] = $posted;
-						}
-
-					} elseif ( ( 'checkbox' == $type ) || ( 'toggle' == $type ) ) {
-
-						// --- checkbox / toggle ---
-						// 1.0.6: fix to new unchecked checkbox value
-						// 1.0.9: maybe validate to specified checkbox value
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( isset( $values['value'] ) ) {
-							$valid = array( $values['value'] );
-						} else {
-							$valid = array( 'yes', '1', 'checked', 'on' );
-						}
-						if ( in_array( $posted, $valid ) ) {
-							$settings[$key] = $posted;
-						} elseif ( is_null( $posted ) ) {
-							$settings[$key] = '';
-						}
-
-					} elseif ( 'textarea' == $type ) {
-
-						// --- text area ---
-						// 1.2.5: use sanitize_textarea_field with stripslashes
-						$posted = isset( $_POST[$postkey] ) ? sanitize_textarea_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						// 1.3.0: move use of stripslashes to separate line
-						if ( !is_null( $posted ) ) {
-							$posted = stripslashes( $posted );
-						}
-						$settings[$key] = $posted;
-
-					} elseif ( 'text' == $type ) {
-
-						// --- text field (slug) ---
-						// 1.0.9: move text field sanitization to validation
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( !is_string( $valid ) ) {
-							$valid = 'TEXT';
-						}
-						$newsettings = $posted;
-
-					} elseif ( 'email' == $type ) {
-
-						// --- email field ---
-						// 1.3.0: added explicitly for email field type
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( !is_string( $valid ) ) {
-							$valid = 'EMAIL';
-						}
-						$newsettings = $posted;
-
-					} elseif ( ( 'number' == $type ) || ( 'numeric' == $type ) ) {
-
-						// --- number field value ---
-						// 1.0.9: added support for number step, minimum and maximum
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						$newsettings = $posted;
-						$valid = 'NUMERIC';
-						if ( isset( $values['step'] ) ) {
-							$validate_args['step'] = $values['step'];
-						}
-						if ( isset( $values['min'] ) ) {
-							$validate_args['min'] = $values['min'];
-						}
-						if ( isset( $values['max'] ) ) {
-							$validate_args['max'] = $values['max'];
-						}
-
-					} elseif ( 'multicheck' == $type ) {
-
-						// --- process multicheck boxes ---
-						// 1.0.9: added multicheck input type
-						// note: needs defined options (but works with post types)
-						$posted = array();
-						foreach ( $valid as $option => $label ) {
-							$optionkey = $args['settings'] . '_' . $key . '-' . $option;
-							if ( isset( $_POST[$optionkey] ) ) {
-								// 1.1.2: check for value if specified
-								// 1.2.5: apply sanitize_text_field to posted value
-								if ( ( isset( $values['value'] ) && ( sanitize_text_field( wp_unslash( $_POST[$optionkey] ) ) == $values['value'] ) )
-									|| ( !isset( $values['value'] ) && ( 'yes' == sanitize_text_field( wp_unslash( $_POST[$optionkey] ) ) ) ) ) {
-									// 1.1.0: fixed to save only array of key values
-									$posted[] = $option;
-								}
-							}
-						}
-						$settings[$key] = $posted;
-
-					} elseif ( 'csv' == $type ) {
-
-						// -- comma separated values ---
-						// 1.0.4: added comma separated values option
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( strstr( $posted, ',' ) ) {
-							$posted = explode( ',', $posted );
-						} else {
-							// 1.2.8: fix to convert string to array
-							$posted = array( $posted );
-						}
-						foreach ( $posted as $i => $value ) {
-							$posted[$i] = trim( $value );
-						}
+						// --- maybe validate special options ---
+						// 1.0.9: check for special options to prepare
 						if ( is_string( $valid ) ) {
-							$newsettings = $posted;
-						} elseif ( is_array( $valid ) && ( count( $valid ) > 0 ) ) {
-							// 1.2.0: fix to check for empty valid array
-							foreach ( $posted as $i => $value ) {
-								if ( !in_array( $value, $valid ) ) {
-									unset( $posted[$i] );
+
+							// --- maybe get public post type slugs ---
+							if ( in_array( $valid, array( 'PUBLICTYPE', 'PUBLICTYPES' ) ) ) {
+								$valid = array();
+								if ( !isset( $public ) ) {
+									$cpts = array( 'page', 'post' );
+									$cptargs = array( 'public' => true, '_builtin' => false );
+									$cptlist = get_post_types( $cptargs, 'names', 'and' );
+									$public = array_merge( $cpts, $cptlist );
+								}
+								foreach ( $public as $cpt ) {
+									$valid[$cpt] = '';
 								}
 							}
-							$settings[$key] = implode( ',', $posted );
-						} else {
-							$settings[$key] = implode( ',', $posted );
-						}
 
-					} elseif ( ( 'radio' == $type ) || ( 'select' == $type ) ) {
-
-						// --- explicit radio or select value ---
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( is_string( $valid ) ) {
-							$newsettings = $posted;
-						} elseif ( is_array( $valid ) && array_key_exists( $posted, $valid ) ) {
-							$settings[$key] = $posted;
-						}
-
-					} elseif ( 'multiselect' == $type ) {
-
-						// --- multiselect values ---
-						// 1.0.9: added multiselect value saving
-						$posted = isset( $_POST[$postkey] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST[$postkey] ) ) : array();
-						$newsettings = array_values( $posted );
-
-					} elseif ( 'image' == $type ) {
-
-						// --- check attachment ID value ---
-						// 1.1.7: add image attachment ID saving
-						$posted = isset( $_POST[$postkey] ) ? absint( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( $posted ) {
-							$attachment = wp_get_attachment_image_src( $posted, 'full' );
-							if ( is_array( $attachment ) ) {
-								$settings[$key] = $posted;
-							}
-						}
-
-					} elseif ( 'color' == $type ) {
-
-						// --- hex color setting ---
-						// 1.1.7: added color picker value saving
-						// 1.2.5: use sanitize_hex_color on color field
-						$posted = isset( $_POST[$postkey] ) ? sanitize_hex_color( wp_unslash( $_POST[$postkey] ) ) : null;
-						$settings[$key] = $posted;
-
-					} elseif ( 'coloralpha' == $type ) {
-
-						// --- color alpha setting ---
-						// 1.2.5: separated color alpha setting condition
-						// 1.2.5: added rgba version of sanitization
-						// ref: https://wordpress.stackexchange.com/a/262578/76440
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( !is_null( $posted ) ) {
-							$posted = str_replace( ' ', '', $posted );
-							$values = array();
-							// 1.2.7: fix color variable to posted
-							// 1.2.7: make alpha a value key not separate
-							// 1.2.7: check number of commas to see if alpha is set
-							$commas = substr_count( $posted, ',' );
-							if ( 3 == $commas ) {
-								sscanf( $posted, 'rgba(%d,%d,%d,%f)', $values['red'], $values['green'], $values['blue'], $values['alpha'] );
-							} elseif ( 2 == $commas ) {
-								// 1.2.8: remove a from rgba (failing for non-alpha selections)
-								sscanf( $posted, 'rgb(%d,%d,%d)', $values['red'], $values['green'], $values['blue'] );
-							}
-							// echo 'rgba sscanf values: ' . print_r( $values, true ) . "\n";
-							// 1.2.7: fix for use of duplicate key variable
-							foreach ( $values as $k => $v ) {
-								if ( 'alpha' != $k ) {
-									// --- sanitize rgb values ---
-									$v = absint( $v );
-									if ( $v < 0 ) {
-										$values[$k] = 0;
-									} elseif ( $v > 255 ) {
-										$values[$k] = 255;
-									}
-								} else {
-									// --- sanitize alpha value ---
-									if ( $v < 0 ) {
-										$values['alpha'] = 0;
-									} elseif ( $v > 1 ) {
-										$values['alpha'] = 1;
-									}
+							// --- maybe get post type slugs ---
+							if ( in_array( $valid, array( 'POSTTYPE', 'POSTTYPES' ) ) ) {
+								$valid = array();
+								if ( !isset( $cpts ) ) {
+									$cpts = array( 'page', 'post' );
+									$cptargs = array( 'public' => true, '_builtin' => false );
+									$cptlist = get_post_types( $cptargs, 'names', 'and' );
+									$cpts = array_merge( $cpts, $cptlist );
+								}
+								foreach ( $cpts as $cpt ) {
+									$valid[$cpt] = '';
 								}
 							}
-							if ( 3 == $commas ) {
-								$posted = 'rgba(' . $values['red'] . ',' . $values['green'] . ',' . $values['blue'] . ',' . $values['alpha'] . ')';
-							} elseif ( 2 == $commas ) {
-								// 1.2.8: remove a from rgba (for non-alpha selections)
-								$posted = 'rgb(' . $values['red'] . ',' . $values['green'] . ',' . $values['blue'] . ')';
-							}
-						}
-						$settings[$key] = $posted;
 
-					} else {
-						
-						// --- fallback to text type ---
-						// 1.3.0: added for unspecified option field type
-						$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
-						if ( !is_string( $valid ) ) {
-							$valid = 'TEXT';
-						}
-						$newsettings = $posted;						
-						
-					}
-
-					if ( $this->debug ) {
-						echo 'New Settings for Key ' . esc_html( $key ) . ': ';
-						// 1.2.0: added isset check for newsetting
-						if ( !is_null( $newsettings ) ) {
-							// phpcs:ignore WordPress.PHP.DevelopmentFunctions
-							echo '(To-validate) ' . esc_html( print_r( $newsettings, true ) ) . '<br>' . "\n";
-						} else {
-							// 1.1.7 handle if (new) key not set yet
-							if ( isset( $settings[$key] ) ) {
-								// phpcs:ignore WordPress.PHP.DevelopmentFunctions
-								echo '(Validated) ' . esc_html( print_r( $settings[$key], true ) ) . '<br>' . "\n";
-							} else {
-								echo 'No setting yet for key ' . esc_html( $key ) . '<br>' . "\n";
-							}
-						}
-					}
-
-					// --- maybe validate new settings ---
-					// 1.1.9: fix to allow saving of zero value
-					// 1.2.1: fix to allow saving of empty value
-					if ( !is_null( $newsettings ) ) {
-						if ( is_array( $newsettings ) ) {
-
-							// --- validate array of settings ---
-							// 1.1.9: fix to allow saving of zero value
-							// 1.2.1: fix to allow saving of empty value
-							foreach ( $newsettings as $newkey => $newvalue ) {
-								$newsetting = $this->validate_setting( $newvalue, $valid, $validate_args );
-								if ( $this->debug ) {
-									echo 'Validated Setting array value ' . esc_html( $newvalue ) . ' to ' . esc_html( $newsetting );
+							// --- maybe get all post type slugs ---
+							if ( in_array( $valid, array( 'ALLTYPE', 'ALLTYPES' ) ) ) {
+								$valid = array();
+								if ( !isset( $allcpts ) ) {
+									$cptargs = array( '_builtin' => false );
+									$allcpts = get_post_types( $cptargs, 'names', 'and' );
 								}
-								if ( $newsetting || ( '' == $newsetting ) ) {
-									$newsettings[$newkey] = $newsetting;
-								} elseif ( ( 0 == $newsetting ) || ( '0' == $newsetting ) ) {
-									$newsettings[$newkey] = $newsetting;
-								} else {
-									unset( $newsettings[$newkey] );
-								}
-							}
-							if ( 'csv' == $type ) {
-								$settings[$key] = implode( ',', $newsettings );
-							} else {
-								$settings[$key] = $newsettings;
-							}
-
-						} elseif ( $newsettings || ( '' == $newsettings ) || ( 0 === $newsettings ) || ( '0' === $newsettings ) ) {
-
-							// --- validate single setting ---
-							if ( 'csv' == $type ) {
-								// 1.1.5: fix to validate each of multiple CSV values
-								$values = explode( ',', $newsettings );
-								$newvalues = array();
-								foreach ( $values as $value ) {
-									$newvalue = $this->validate_setting( $value, $valid, $validate_args );
-									$newvalues[] = $newvalue;
-									if ( $this->debug ) {
-										echo 'Validated Setting value ' . esc_html( $value ) . ' to ' . esc_html( $newvalue ) . '<br>' . "\n";
-									}
-								}
-								$newsettings = implode( ',', $newvalues );
-								$settings[$key] = $newsettings;
-							} else {
-								$newsetting = $this->validate_setting( $newsettings, $valid, $validate_args );
-								// 1.1.9: fix to allow saving of zero value
-								// 1.2.1: fix to allow saving of empty value
-								if ( $this->debug ) {
-									echo 'Validated Setting single value ' . esc_html( $newsettings ) . ' to ' . esc_html( $newsetting ) . '<br>' . "\n";
-								}
-								if ( $newsetting || ( '' == $newsetting ) || ( 0 == $newsetting ) || ( '0' == $newsetting ) ) {
-									$settings[$key] = $newsetting;
+								foreach ( $allcpts as $cpt ) {
+									$valid[$cpt] = '';
 								}
 							}
 						}
 
 						if ( $this->debug ) {
 							// phpcs:ignore WordPress.PHP.DevelopmentFunctions
-							echo 'Valid Options for Key ' . esc_html( $key ) . ': ' . esc_html( print_r( $valid, true ) ) . '<br>' . "\n";
+							echo 'Saving Setting Key ' . esc_html( $key ) . ' (' . esc_html( $postkey ) . ')<br>' . "\n";
 							// phpcs:ignore WordPress.PHP.DevelopmentFunctions
-							echo 'Validated Settings for Key ' . esc_html( $key ) . ': ' . esc_html( print_r( $settings[$key], true ) ) . '<br>' . "\n";
+							echo 'Type: ' . esc_html( $type ) . ' - Valid Options ' . esc_html( $key ) . ': ' . esc_html( print_r( $valid, true ) ) . '<br>' . "\n";
+						}
+
+						// --- sanitize value according to type ---
+						if ( strstr( $type, '/' ) ) {
+
+							// --- implicit radio / select ---
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							$valid = explode( '/', $type );
+							if ( in_array( $posted, $valid ) ) {
+								$settings[$key] = $posted;
+							}
+
+						} elseif ( ( 'checkbox' == $type ) || ( 'toggle' == $type ) ) {
+
+							// --- checkbox / toggle ---
+							// 1.0.6: fix to new unchecked checkbox value
+							// 1.0.9: maybe validate to specified checkbox value
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( isset( $values['value'] ) ) {
+								$valid = array( $values['value'] );
+							} else {
+								$valid = array( 'yes', '1', 'checked', 'on' );
+							}
+							if ( in_array( $posted, $valid ) ) {
+								$settings[$key] = $posted;
+							} elseif ( is_null( $posted ) ) {
+								$settings[$key] = '';
+							}
+
+						} elseif ( 'textarea' == $type ) {
+
+							// --- text area ---
+							// 1.2.5: use sanitize_textarea_field with stripslashes
+							$posted = isset( $_POST[$postkey] ) ? sanitize_textarea_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							// 1.3.0: move use of stripslashes to separate line
+							if ( !is_null( $posted ) ) {
+								$posted = stripslashes( $posted );
+							}
+							$settings[$key] = $posted;
+
+						} elseif ( 'text' == $type ) {
+
+							// --- text field (slug) ---
+							// 1.0.9: move text field sanitization to validation
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( !is_string( $valid ) ) {
+								$valid = 'TEXT';
+							}
+							$newsettings = $posted;
+
+						} elseif ( 'email' == $type ) {
+
+							// --- email field ---
+							// 1.3.0: added explicitly for email field type
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( !is_string( $valid ) ) {
+								$valid = 'EMAIL';
+							}
+							$newsettings = $posted;
+
+						} elseif ( ( 'number' == $type ) || ( 'numeric' == $type ) ) {
+
+							// --- number field value ---
+							// 1.0.9: added support for number step, minimum and maximum
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							$newsettings = $posted;
+							$valid = 'NUMERIC';
+							if ( isset( $values['step'] ) ) {
+								$validate_args['step'] = $values['step'];
+							}
+							if ( isset( $values['min'] ) ) {
+								$validate_args['min'] = $values['min'];
+							}
+							if ( isset( $values['max'] ) ) {
+								$validate_args['max'] = $values['max'];
+							}
+
+						} elseif ( 'multicheck' == $type ) {
+
+							// --- process multicheck boxes ---
+							// 1.0.9: added multicheck input type
+							// note: needs defined options (but works with post types)
+							$posted = array();
+							foreach ( $valid as $option => $label ) {
+								$optionkey = $args['settings'] . '_' . $key . '-' . $option;
+								if ( isset( $_POST[$optionkey] ) ) {
+									// 1.1.2: check for value if specified
+									// 1.2.5: apply sanitize_text_field to posted value
+									if ( ( isset( $values['value'] ) && ( sanitize_text_field( wp_unslash( $_POST[$optionkey] ) ) == $values['value'] ) )
+										|| ( !isset( $values['value'] ) && ( 'yes' == sanitize_text_field( wp_unslash( $_POST[$optionkey] ) ) ) ) ) {
+										// 1.1.0: fixed to save only array of key values
+										$posted[] = $option;
+									}
+								}
+							}
+							$settings[$key] = $posted;
+
+						} elseif ( 'csv' == $type ) {
+
+							// -- comma separated values ---
+							// 1.0.4: added comma separated values option
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( strstr( $posted, ',' ) ) {
+								$posted = explode( ',', $posted );
+							} else {
+								// 1.2.8: fix to convert string to array
+								$posted = array( $posted );
+							}
+							foreach ( $posted as $i => $value ) {
+								$posted[$i] = trim( $value );
+							}
+							if ( is_string( $valid ) ) {
+								$newsettings = $posted;
+							} elseif ( is_array( $valid ) && ( count( $valid ) > 0 ) ) {
+								// 1.2.0: fix to check for empty valid array
+								foreach ( $posted as $i => $value ) {
+									if ( !in_array( $value, $valid ) ) {
+										unset( $posted[$i] );
+									}
+								}
+								$settings[$key] = implode( ',', $posted );
+							} else {
+								$settings[$key] = implode( ',', $posted );
+							}
+
+						} elseif ( ( 'radio' == $type ) || ( 'select' == $type ) ) {
+
+							// --- explicit radio or select value ---
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( is_string( $valid ) ) {
+								$newsettings = $posted;
+							} elseif ( is_array( $valid ) && array_key_exists( $posted, $valid ) ) {
+								$settings[$key] = $posted;
+							}
+
+						} elseif ( 'multiselect' == $type ) {
+
+							// --- multiselect values ---
+							// 1.0.9: added multiselect value saving
+							$posted = isset( $_POST[$postkey] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST[$postkey] ) ) : array();
+							$newsettings = array_values( $posted );
+
+						} elseif ( 'image' == $type ) {
+
+							// --- check attachment ID value ---
+							// 1.1.7: add image attachment ID saving
+							$posted = isset( $_POST[$postkey] ) ? absint( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( $posted ) {
+								$attachment = wp_get_attachment_image_src( $posted, 'full' );
+								if ( is_array( $attachment ) ) {
+									$settings[$key] = $posted;
+								}
+							}
+
+						} elseif ( 'color' == $type ) {
+
+							// --- hex color setting ---
+							// 1.1.7: added color picker value saving
+							// 1.2.5: use sanitize_hex_color on color field
+							$posted = isset( $_POST[$postkey] ) ? sanitize_hex_color( wp_unslash( $_POST[$postkey] ) ) : null;
+							$settings[$key] = $posted;
+
+						} elseif ( 'coloralpha' == $type ) {
+
+							// --- color alpha setting ---
+							// 1.2.5: separated color alpha setting condition
+							// 1.2.5: added rgba version of sanitization
+							// ref: https://wordpress.stackexchange.com/a/262578/76440
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( !is_null( $posted ) ) {
+								$posted = str_replace( ' ', '', $posted );
+								$values = array();
+								// 1.2.7: fix color variable to posted
+								// 1.2.7: make alpha a value key not separate
+								// 1.2.7: check number of commas to see if alpha is set
+								$commas = substr_count( $posted, ',' );
+								if ( 3 == $commas ) {
+									sscanf( $posted, 'rgba(%d,%d,%d,%f)', $values['red'], $values['green'], $values['blue'], $values['alpha'] );
+								} elseif ( 2 == $commas ) {
+									// 1.2.8: remove a from rgba (failing for non-alpha selections)
+									sscanf( $posted, 'rgb(%d,%d,%d)', $values['red'], $values['green'], $values['blue'] );
+								}
+								// echo 'rgba sscanf values: ' . print_r( $values, true ) . "\n";
+								// 1.2.7: fix for use of duplicate key variable
+								foreach ( $values as $k => $v ) {
+									if ( 'alpha' != $k ) {
+										// --- sanitize rgb values ---
+										$v = absint( $v );
+										if ( $v < 0 ) {
+											$values[$k] = 0;
+										} elseif ( $v > 255 ) {
+											$values[$k] = 255;
+										}
+									} else {
+										// --- sanitize alpha value ---
+										if ( $v < 0 ) {
+											$values['alpha'] = 0;
+										} elseif ( $v > 1 ) {
+											$values['alpha'] = 1;
+										}
+									}
+								}
+								if ( 3 == $commas ) {
+									$posted = 'rgba(' . $values['red'] . ',' . $values['green'] . ',' . $values['blue'] . ',' . $values['alpha'] . ')';
+								} elseif ( 2 == $commas ) {
+									// 1.2.8: remove a from rgba (for non-alpha selections)
+									$posted = 'rgb(' . $values['red'] . ',' . $values['green'] . ',' . $values['blue'] . ')';
+								}
+							}
+							$settings[$key] = $posted;
+
+						} else {
+							
+							// --- fallback to text type ---
+							// 1.3.0: added for unspecified option field type
+							$posted = isset( $_POST[$postkey] ) ? sanitize_text_field( wp_unslash( $_POST[$postkey] ) ) : null;
+							if ( !is_string( $valid ) ) {
+								$valid = 'TEXT';
+							}
+							$newsettings = $posted;						
+							
+						}
+
+						if ( $this->debug ) {
+							echo 'New Settings for Key ' . esc_html( $key ) . ': ';
+							// 1.2.0: added isset check for newsetting
+							if ( !is_null( $newsettings ) ) {
+								// phpcs:ignore WordPress.PHP.DevelopmentFunctions
+								echo '(To-validate) ' . esc_html( print_r( $newsettings, true ) ) . '<br>' . "\n";
+							} else {
+								// 1.1.7 handle if (new) key not set yet
+								if ( isset( $settings[$key] ) ) {
+									// phpcs:ignore WordPress.PHP.DevelopmentFunctions
+									echo '(Validated) ' . esc_html( print_r( $settings[$key], true ) ) . '<br>' . "\n";
+								} else {
+									echo 'No setting yet for key ' . esc_html( $key ) . '<br>' . "\n";
+								}
+							}
+						}
+
+						// --- maybe validate new settings ---
+						// 1.1.9: fix to allow saving of zero value
+						// 1.2.1: fix to allow saving of empty value
+						if ( !is_null( $newsettings ) ) {
+							if ( is_array( $newsettings ) ) {
+
+								// --- validate array of settings ---
+								// 1.1.9: fix to allow saving of zero value
+								// 1.2.1: fix to allow saving of empty value
+								foreach ( $newsettings as $newkey => $newvalue ) {
+									$newsetting = $this->validate_setting( $newvalue, $valid, $validate_args );
+									if ( $this->debug ) {
+										echo 'Validated Setting array value ' . esc_html( $newvalue ) . ' to ' . esc_html( $newsetting );
+									}
+									if ( $newsetting || ( '' == $newsetting ) ) {
+										$newsettings[$newkey] = $newsetting;
+									} elseif ( ( 0 == $newsetting ) || ( '0' == $newsetting ) ) {
+										$newsettings[$newkey] = $newsetting;
+									} else {
+										unset( $newsettings[$newkey] );
+									}
+								}
+								if ( 'csv' == $type ) {
+									$settings[$key] = implode( ',', $newsettings );
+								} else {
+									$settings[$key] = $newsettings;
+								}
+
+							} elseif ( $newsettings || ( '' == $newsettings ) || ( 0 === $newsettings ) || ( '0' === $newsettings ) ) {
+
+								// --- validate single setting ---
+								if ( 'csv' == $type ) {
+									// 1.1.5: fix to validate each of multiple CSV values
+									$values = explode( ',', $newsettings );
+									$newvalues = array();
+									foreach ( $values as $value ) {
+										$newvalue = $this->validate_setting( $value, $valid, $validate_args );
+										$newvalues[] = $newvalue;
+										if ( $this->debug ) {
+											echo 'Validated Setting value ' . esc_html( $value ) . ' to ' . esc_html( $newvalue ) . '<br>' . "\n";
+										}
+									}
+									$newsettings = implode( ',', $newvalues );
+									$settings[$key] = $newsettings;
+								} else {
+									$newsetting = $this->validate_setting( $newsettings, $valid, $validate_args );
+									// 1.1.9: fix to allow saving of zero value
+									// 1.2.1: fix to allow saving of empty value
+									if ( $this->debug ) {
+										echo 'Validated Setting single value ' . esc_html( $newsettings ) . ' to ' . esc_html( $newsetting ) . '<br>' . "\n";
+									}
+									if ( $newsetting || ( '' == $newsetting ) || ( 0 == $newsetting ) || ( '0' == $newsetting ) ) {
+										$settings[$key] = $newsetting;
+									}
+								}
+							}
+
+							if ( $this->debug ) {
+								// phpcs:ignore WordPress.PHP.DevelopmentFunctions
+								echo 'Valid Options for Key ' . esc_html( $key ) . ': ' . esc_html( print_r( $valid, true ) ) . '<br>' . "\n";
+								// phpcs:ignore WordPress.PHP.DevelopmentFunctions
+								echo 'Validated Settings for Key ' . esc_html( $key ) . ': ' . esc_html( print_r( $settings[$key], true ) ) . '<br>' . "\n";
+							}
 						}
 					}
-
 				}
 			}
 
@@ -1511,14 +1539,14 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				$parsed = $readme->parse_readme_contents( $contents );
 
 				// --- output plugin info ---
-				echo '<b>' . esc_html( __( 'Plugin Name', 'radio-station' ) ) . '</b>: ' . esc_html( $parsed['name'] ) . '<br>' . "\n";
-				// echo '<b>' . esc_html( __( 'Tags', 'radio-station' ) ) . '</b>: ' . esc_html( implode( ', ', $parsed['tags'] ) ) . '<br>' . "\n";
-				echo '<b>' . esc_html( __( 'Requires at least', 'radio-station' ) ) . '</b>: ' . esc_html( __( 'WordPress', 'radio-station' ) ) . ' v' . esc_html( $parsed['requires_at_least'] ) . '<br>' . "\n";
-				echo '<b>' . esc_html( __( 'Tested up to', 'radio-station' ) ) . '</b>: ' . esc_html( __( 'WordPress', 'radio-station' ) ) . ' v' . esc_html( $parsed['tested_up_to'] ) . '<br>' . "\n";
+				echo '<b>' . esc_html( __( 'Plugin Name', 'teleporter' ) ) . '</b>: ' . esc_html( $parsed['name'] ) . '<br>' . "\n";
+				// echo '<b>' . esc_html( __( 'Tags', 'teleporter' ) ) . '</b>: ' . esc_html( implode( ', ', $parsed['tags'] ) ) . '<br>' . "\n";
+				echo '<b>' . esc_html( __( 'Requires at least', 'teleporter' ) ) . '</b>: ' . esc_html( __( 'WordPress', 'teleporter' ) ) . ' v' . esc_html( $parsed['requires_at_least'] ) . '<br>' . "\n";
+				echo '<b>' . esc_html( __( 'Tested up to', 'teleporter' ) ) . '</b>: ' . esc_html( __( 'WordPress', 'teleporter' ) ) . ' v' . esc_html( $parsed['tested_up_to'] ) . '<br>' . "\n";
 				if ( isset( $parsed['stable_tag'] ) ) {
-					echo '<b>' . esc_html( __( 'Stable Tag', 'radio-station' ) ) . '</b>: ' . esc_html( $parsed['stable_tag'] ) . '<br>' . "\n";
+					echo '<b>' . esc_html( __( 'Stable Tag', 'teleporter' ) ) . '</b>: ' . esc_html( $parsed['stable_tag'] ) . '<br>' . "\n";
 				}
-				echo '<b>' . esc_html( __( 'Contributors', 'radio-station' ) ) . '</b>: ' . esc_html( implode( ', ', $parsed['contributors'] ) ) . '<br>' . "\n";
+				echo '<b>' . esc_html( __( 'Contributors', 'teleporter' ) ) . '</b>: ' . esc_html( implode( ', ', $parsed['contributors'] ) ) . '<br>' . "\n";
 				// echo '<b>Donate Link</b>: <a href="' . esc_url( $parsed['donate_link'] ) . '" target="_blank">' . esc_html( $parsed['donate_link'] ) . '</a><br>';
 				// 1.2.5: use wp_kses_post on plugin short description markup
 				echo '<br>' . wp_kses_post( $parsed['short_description'] ) . '<br><br>' . "\n";
@@ -1544,7 +1572,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					}
 				}
 				if ( isset( $parsed['remaining_content'] ) && !empty( $remaining_content ) ) {
-					echo '<h3>' . esc_html( __( 'Extra Notes', 'radio-station' ) ) . '</h3>' . "\n";
+					echo '<h3>' . esc_html( __( 'Extra Notes', 'teleporter' ) ) . '</h3>' . "\n";
 					// 1.2.5: use wp_kses_post on readme extra notes output
 					echo wp_kses_post( $parsed['remaining_content'] );
 				}
@@ -1776,7 +1804,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			// 1.2.4: added ordering to replacement arguments
 			$message .= sprintf(
 				// Translators: plugin title, user name, site link, freemius link
-				__( 'If you want to more easily access support and feedback for this plugins features and functionality, %1$s can connect your user, %2$s at %3$s, to %4$s', 'radio-station' ),
+				__( 'If you want to more easily access support and feedback for this plugins features and functionality, %1$s can connect your user, %2$s at %3$s, to %4$s', 'teleporter' ),
 				'<b>' . $plugin_title . '</b>',
 				'<b>' . $user_login . '</b>',
 				$site_link,
@@ -1914,7 +1942,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				// (depending on whether top level menu or Settings submenu item)
 				$page = $this->menu_added ? 'admin.php' : 'options-general.php';
 				$settings_url = add_query_arg( 'page', $args['slug'], admin_url( $page ) );
-				$settings_link = '<a href="' . esc_url( $settings_url ) . '">' . esc_html( __( 'Settings', 'radio-station' ) ) . '</a>';
+				$settings_link = '<a href="' . esc_url( $settings_url ) . '">' . esc_html( __( 'Settings', 'teleporter' ) ) . '</a>';
 				$link = array( 'settings' => $settings_link );
 				$links = array_merge( $link, $links );
 
@@ -1932,7 +1960,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							$upgrade_url = add_query_arg( 'page', $args['slug'] . '-pricing', admin_url( 'admin.php' ) );
 							$upgrade_target = !strstr( $upgrade_url, '/wp-admin/' ) ? ' target="_blank"' : '';
 						}
-						$upgrade_link = '<b><a href="' . esc_url( $upgrade_url ) . '"' . $upgrade_target . ">" . esc_html( __( 'Upgrade', 'radio-station' ) ) . '</a></b>';
+						$upgrade_link = '<b><a href="' . esc_url( $upgrade_url ) . '"' . $upgrade_target . ">" . esc_html( __( 'Upgrade', 'teleporter' ) ) . '</a></b>';
 						$link = array( 'upgrade' => $upgrade_link );
 						$links = array_merge( $link, $links );
 
@@ -1940,7 +1968,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 						// 1.2.0: added separate pro details link
 						if ( isset( $args['pro_link'] ) ) {
 							$pro_target = !strstr( $args['pro_link'], '/wp-admin/' ) ? ' target="_blank"' : '';
-							$pro_link = '<b><a href="' . esc_url( $args['pro_link'] ) . '"' . $pro_target . '>' . esc_html( __( 'Pro Details', 'radio-station' ) ) . '</a></b>';
+							$pro_link = '<b><a href="' . esc_url( $args['pro_link'] ) . '"' . $pro_target . '>' . esc_html( __( 'Pro Details', 'teleporter' ) ) . '</a></b>';
 							$link = array( 'pro-details' => $pro_link );
 							$links = array_merge( $link, $links );
 						}
@@ -1954,7 +1982,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					if ( isset( $args['addons_link'] ) ) {
 						$addons_url = $args['addons_link'];
 						$addons_target = !strstr( $addons_url, '/wp-admin/' ) ? ' target="_blank"' : '';
-						$addons_link = '<a href="' . esc_url( $addons_url ) . '"' . $addons_target . '>' . esc_html( __( 'Add Ons', 'radio-station' ) ) . '</a>';
+						$addons_link = '<a href="' . esc_url( $addons_url ) . '"' . $addons_target . '>' . esc_html( __( 'Add Ons', 'teleporter' ) ) . '</a>';
 						$link = array( 'addons' => $addons_link );
 						$links = array_merge( $link, $links );
 					}
@@ -2022,7 +2050,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			echo '<div style="width: 98%;" id="admin-notices-box" class="postbox">' . "\n";
 			echo '<h3 class="admin-notices-title" style="cursor:pointer; margin:7px 14px; font-size:16px;" onclick="settings_toggle_notices();">' . "\n";
 			echo '<span id="admin-notices-arrow" style="font-size:24px;">&#9656;</span> &nbsp; ' . "\n";
-			echo '<span id="admin-notices-title" style="vertical-align:top;">' . esc_html( __( 'Notices', 'radio-station' ) ) . '</span>  &nbsp; ' . "\n";
+			echo '<span id="admin-notices-title" style="vertical-align:top;">' . esc_html( __( 'Notices', 'teleporter' ) ) . '</span>  &nbsp; ' . "\n";
 			echo '<span id="admin-notices-count" style="vertical-align:top;"></span></h3>' . "\n";
 
 			echo '<div id="admin-notices-wrap" style="display:none";><h2 style="display:none;"></h2></div>' . "\n";
@@ -2109,7 +2137,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			// ---- plugin author ---
 			// 1.0.8: check if author URL is set
 			if ( isset( $args['author_url'] ) ) {
-				echo '<font style="font-size:16px;">' . esc_html( __( 'by', 'radio-station' ) ) . '</font> ';
+				echo '<font style="font-size:16px;">' . esc_html( __( 'by', 'teleporter' ) ) . '</font> ';
 				echo '<a href="' . esc_url( $args['author_url'] ) . '" target="_blank" style="text-decoration:none;font-size:16px;" target="_blank"><b>' . esc_html( $args['author'] ) . '</b></a><br><br>' . "\n";
 			}
 
@@ -2119,20 +2147,20 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			// 1.1.0: added title attributes to links
 			$links = array();
 			if ( isset( $args['home'] ) ) {
-				$links[] = '<a href="' . esc_url( $args['home'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Homepage', 'radio-station' ) ) . '" target="_blank"><b>' . esc_html( __( 'Home', 'radio-station' ) ) . '</b></a>';
+				$links[] = '<a href="' . esc_url( $args['home'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Homepage', 'teleporter' ) ) . '" target="_blank"><b>' . esc_html( __( 'Home', 'teleporter' ) ) . '</b></a>';
 			}
 			if ( !isset( $args['readme'] ) || ( false !== $args['readme'] ) ) {
 				$readme_url = add_query_arg( 'action', $namespace . '_readme_viewer', admin_url( 'admin-ajax.php' ) );
-				$links[] = '<a href="' . esc_url( $readme_url ) . '" class="pluginlink smalllink thickbox" title="' . esc_attr( __( 'View Plugin', 'radio-station' ) ) . ' readme.txt"><b>' . esc_html( __( 'Readme', 'radio-station' ) ) . '</b></a>';
+				$links[] = '<a href="' . esc_url( $readme_url ) . '" class="pluginlink smalllink thickbox" title="' . esc_attr( __( 'View Plugin', 'teleporter' ) ) . ' readme.txt"><b>' . esc_html( __( 'Readme', 'teleporter' ) ) . '</b></a>';
 			}
 			if ( isset( $args['docs'] ) ) {
-				$links[] = '<a href="' . esc_url( $args['docs'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Documentation', 'radio-station' ) ) . '" target="_blank"><b>' . esc_html( __( 'Docs', 'radio-station' ) ) . '</b></a>';
+				$links[] = '<a href="' . esc_url( $args['docs'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Documentation', 'teleporter' ) ) . '" target="_blank"><b>' . esc_html( __( 'Docs', 'teleporter' ) ) . '</b></a>';
 			}
 			if ( isset( $args['support'] ) ) {
-				$links[] = '<a href="' . esc_url( $args['support'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Support', 'radio-station' ) ) . '" target="_blank"><b>' . esc_html( __( 'Support', 'radio-station' ) ) . '</b></a>';
+				$links[] = '<a href="' . esc_url( $args['support'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Support', 'teleporter' ) ) . '" target="_blank"><b>' . esc_html( __( 'Support', 'teleporter' ) ) . '</b></a>';
 			}
 			if ( isset( $args['development'] ) ) {
-				$links[] = '<a href="' . esc_url( $args['development'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Development', 'radio-station' ) ) . '" target="_blank"><b>' . esc_html( __( 'Dev', 'radio-station' ) ) . '</b></a>';
+				$links[] = '<a href="' . esc_url( $args['development'] ) . '" class="pluginlink smalllink" title="' . esc_attr( __( 'Plugin Development', 'teleporter' ) ) . '" target="_blank"><b>' . esc_html( __( 'Dev', 'teleporter' ) ) . '</b></a>';
 			}
 
 			// 1.0.9: change filter from _plugin_links to disambiguate
@@ -2180,7 +2208,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				if ( isset( $args['ratetext'] ) ) {
 					$rate_text = $args['ratetext'];
 				} else {
-					$rate_text = __( 'Rate on WordPress.Org', 'radio-station' );
+					$rate_text = __( 'Rate on WordPress.Org', 'teleporter' );
 				}
 				$rate_link = '<a href="' . esc_url( $rate_url ) . '" class="pluginlink" target="_blank">';
 				$rate_link .= '<span style="font-size:24px; color:#FC5; margin-right:10px;" class="dashicons dashicons-star-filled"></span>' . "\n";
@@ -2197,7 +2225,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				if ( isset( $args['sharetext'] ) ) {
 					$share_text = $args['sharetext'];
 				} else {
-					$share_text = __( 'Share the Plugin Love', 'radio-station' );
+					$share_text = __( 'Share the Plugin Love', 'teleporter' );
 				}
 				$share_link = '<a href="' . esc_url( $args['share'] ) . '" class="pluginlink" target="_blank">';
 				$share_link .= '<span style="font-size:24px; color:#E0E; margin-right:10px;" class="dashicons dashicons-share"></span> ';
@@ -2214,7 +2242,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				if ( isset( $args['donatetext'] ) ) {
 					$donate_text = $args['donatetext'];
 				} else {
-					$donate_text = __( 'Support this Plugin', 'radio-station' );
+					$donate_text = __( 'Support this Plugin', 'teleporter' );
 				}
 				$donate_link = '<a href="' . esc_url( $args['donate'] ) . '" class="pluginlink" target="_blank">';
 				$donate_link .= '<span style="font-size:24px; color:#E00; margin-right:10px;" class="dashicons dashicons-heart"></span> ';
@@ -2234,11 +2262,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				$updated = sanitize_text_field( wp_unslash( $_GET['updated'] ) );
 				if ( 'yes' == $updated ) {
-					$message = $settings['title'] . ' ' . __( 'Settings Updated.', 'radio-station' );
+					$message = $settings['title'] . ' ' . __( 'Settings Updated.', 'teleporter' );
 				} elseif ( 'no' == $updated ) {
-					$message = __( 'Error! Settings NOT Updated.', 'radio-station' );
+					$message = __( 'Error! Settings NOT Updated.', 'teleporter' );
 				} elseif ( 'reset' == $updated ) {
-					$message = $settings['title'] . ' ' . __( 'Settings Reset!', 'radio-station' );
+					$message = $settings['title'] . ' ' . __( 'Settings Reset!', 'teleporter' );
 				}
 				if ( isset( $message ) ) {
 					echo '<tr><td></td><td></td><td align="center">' . "\n";
@@ -2387,7 +2415,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				}
 				echo '</ul>' . "\n";
 			} else {
-				$tabs = array( 'general' => __( 'General', 'radio-station' ) );
+				$tabs = array( 'general' => __( 'General', 'teleporter' ) );
 			}
 
 			// --- reset to default script ---
@@ -2450,7 +2478,9 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							foreach ( $taboptions[$tab][$section] as $key => $option ) {
 								$option['key'] = $key;
 								// 1.2.5: use wp_kses on setting row output with custom allowed HTML
+								// echo $this->setting_row( $option );
 								echo wp_kses( $this->setting_row( $option ), $this->allowed_html( $option ) );
+								
 							}
 							echo '<tr height="25"><td> </td></tr>' . "\n";
 
@@ -2477,9 +2507,9 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				$buttons = '<tr height="25"><td> </td></tr>' . "\n";
 				$buttons .= '<tr><td align="center">' . "\n";
 				// 1.2.5: remove reset onclick attribute
-				$buttons .= '<input type="button" id="settingsresetbutton" class="button-secondary settings-button" value="' . esc_attr( __( 'Reset Settings', 'radio-station' ) ) . '">' . "\n";
+				$buttons .= '<input type="button" id="settingsresetbutton" class="button-secondary settings-button reset-button" value="' . esc_attr( __( 'Reset Settings', 'teleporter' ) ) . '">' . "\n";
 				$buttons .= '</td><td colspan="3"></td><td align="center">' . "\n";
-				$buttons .= '<input type="submit" class="button-primary settings-button" value="' . esc_attr( __( 'Save Settings', 'radio-station' ) ) . '">' . "\n";
+				$buttons .= '<input type="submit" class="button-primary settings-button" value="' . esc_attr( __( 'Save Settings', 'teleporter' ) ) . '">' . "\n";
 				$buttons .= '</td></tr>' . "\n";
 				$buttons .= '<tr height="25"><td></td></tr>' . "\n";
 				$buttons = apply_filters( $namespace . '_admin_save_buttons', $buttons, $tab );
@@ -2523,6 +2553,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 			// --- input ---
 			// 1.2.6: add missing checked attribute
+			// 1.3.8: added data attributes for previews
+			// 1.3.8: add minimum and maximum attributes
 			$allowed['input'] = array(
 				'id'			=> array(),
 				'class'			=> array(),
@@ -2532,8 +2564,15 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				'data'			=> array(),
 				'placeholder'	=> array(),
 				'checked'       => array(),
+				'min'           => array(),
+				'max'           => array(),
 				'data-alpha-enabled' => array(),
 				'data-default-color' => array(),
+				'data-key'      => array(),
+				'data-preview'  => array(),
+				'data-linked'   => array(),
+				'data-css'      => array(),
+				'data-settings' => array(),
 			);
 
 			// --- textarea ---
@@ -2547,6 +2586,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				// 1.3.6: add rows and cols
 				'rows'			=> array(),
 				'cols'			=> array(),
+				'data-key'      => array(),
+				'data-preview'  => array(),
+				'data-linked'   => array(),
+				'data-css'      => array(),
+				'data-settings' => array(),
 			);
 
 			// --- select ---
@@ -2558,6 +2602,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				'value'			=> array(),
 				'type'			=> array(),
 				'multiple'		=> array(),
+				'data-key'      => array(),
+				'data-preview'  => array(),
+				'data-linked'   => array(),
+				'data-css'      => array(),
+				'data-settings' => array(),
 			);
 
 			// --- select option ---
@@ -2570,6 +2619,11 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			// --- option group ---
 			$allowed['optgroup'] = array(
 				'label' => array(),
+			);
+			
+			// --- style tags ---
+			$allowed['style'] = array(
+				'id' => array(),
 			);
 
 			$allowed = apply_filters( $namespace . '_settings_allowed_html', $allowed, $option );
@@ -2584,7 +2638,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 		public function settings_resources( $media = true, $color_picker = true ) {
 
 			// 1.3.5: set default scripts to enqueue
-			$this->scripts = array( 'notice_boxer', 'tab_switcher', 'settings_reset' );
+			// 1.3.8: add preview script
+			$this->scripts = array( 'notice_boxer', 'tab_switcher', 'settings_reset', 'previews' );
 
 			// --- number input step script ---
 			// 1.0.9: added to script array
@@ -2633,6 +2688,18 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 			$type = $option['type'];
 			$setting = $this->get_setting( $option['key'], false );
 
+			$preview_data = '';
+			if ( isset( $option['preview'] ) ) {
+				$preview = $option['preview'];
+				$preview_data = ' data-preview="1" ';
+				$props = array( 'css', 'settings', 'linked', /* 'target', 'selector', 'alt-sel', 'property', 'alt-prop' */ );
+				foreach ( $props as $prop ) {
+					if ( isset( $preview[$prop] ) ) {
+						$preview_data .= 'data-' . $prop . '="' . esc_attr( $preview[$prop] ) . '" ';
+					}
+				}
+			}
+
 			// --- convert old option type names ---
 			if ( 'email' == $type ) {
 				$type = 'text';
@@ -2675,14 +2742,14 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 				$type = 'multiselect';
 				$option['options'] = 'POSTIDS';
 			}
-			// TODO: password and multitoggle
+			// TODO: password and multitoggle ?
 
 			// --- prepare row output ---
 			$row = '<tr class="settings-row">' . "\n";
 
 			$row .= '<td class="settings-label">' . $option['label'] . "\n";
 			if ( 'multiselect' == $type ) {
-				$row .= '<br><span>' . esc_html( __( 'Use Ctrl and Click to Select', 'radio-station' ) ) . '</span>' . "\n";
+				$row .= '<br><span>' . esc_html( __( 'Use Ctrl and Click to Select', 'teleporter' ) ) . '</span>' . "\n";
 			}
 			$row .= '</td><td width="25"></td>' . "\n";
 
@@ -2721,9 +2788,9 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					}
 					if ( $upgrade_link || isset( $pro_link ) ) {
 						// 1.2.2: change text from Available in Pro
-						$row .= __( 'Premium Feature.', 'radio-station' ) . '<br>';
+						$row .= __( 'Premium Feature.', 'teleporter' ) . '<br>';
 						if ( $upgrade_link ) {
-							$row .= '<a href="' . esc_url( $upgrade_link ) . '"' . $upgrade_target . '>' . esc_html( __( 'Upgrade Now', 'radio-station' ) ) . '</a>';
+							$row .= '<a href="' . esc_url( $upgrade_link ) . '"' . $upgrade_target . '>' . esc_html( __( 'Upgrade Now', 'teleporter' ) ) . '</a>';
 						}
 						if ( $upgrade_link && isset( $pro_link ) ) {
 							$row .= ' | ';
@@ -2732,16 +2799,20 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							// 1.2.2: change text from Pro details
 							// 1.3.0: add hash link anchor for Pro feature options
 							$option_anchor = str_replace( '_', '-', $option['key'] );
-							$row .= '<a href="' . esc_url( $pro_link ) . '#' . esc_attr( $option_anchor ) . '"' . $pro_target . '>' . esc_html( __( 'Details', 'radio-station' ) ) . '</a>' . "\n";
+							$row .= '<a href="' . esc_url( $pro_link ) . '#' . esc_attr( $option_anchor ) . '"' . $pro_target . '>' . esc_html( __( 'Details', 'teleporter' ) ) . '</a>' . "\n";
 						}
 					} else {
-						$row .= esc_html( __( 'Coming soon in Pro version!', 'radio-station' ) );
+						$row .= esc_html( __( 'Coming soon in Pro version!', 'teleporter' ) );
 					}
 					$row .= '</td>' . "\n";
 
 				} else {
 
-					$row .= '<td class="settings-input">' . "\n";
+					$row .= '<td class="settings-input"';
+					if ( 'preview' == $type ) {
+						$row .= ' colspan="3"';
+					}
+					$row .= '>' . "\n";
 
 					// --- maybe prepare special options ---
 					if ( isset( $option['options'] ) && is_string( $option['options'] ) ) {
@@ -2870,8 +2941,8 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							$option['value'] = '1';
 						}
 						$checked = ( $setting == $option['value'] ) ? ' checked="checked"' : '';
-						$row .= '<label for="' . esc_attr( $name ) . '" class="setting-toggle">';
-						$row .= '<input type="checkbox" name="' . esc_attr( $name ) . '" class="setting-toggle" value="' . esc_attr( $option['value'] ) . '"' . $checked . '>' . "\n";
+						$row .= '<label for="' . esc_attr( $name ) . '" class="setting setting-toggle">';
+						$row .= '<input type="checkbox" name="' . esc_attr( $name ) . '" data-key="' . esc_attr( $option['key'] ) . '" class="setting-toggle" value="' . esc_attr( $option['value'] ) . '"' . $checked . $preview_data . '>' . "\n";
 						$row .= '<span class="setting-slider round"></span>' . "\n";
 						$row .= '</label>' . "\n";
 						if ( isset( $option['suffix'] ) ) {
@@ -2886,7 +2957,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							$option['value'] = '1';
 						}
 						$checked = ( $setting == $option['value'] ) ? ' checked="checked"' : '';
-						$row .= '<input type="checkbox" name="' . esc_attr( $name ) . '" class="setting-checkbox" value="' . esc_attr( $option['value'] ) . '"' . $checked . '>' . "\n";
+						$row .= '<input type="checkbox" name="' . esc_attr( $name ) . '" data-key="' . esc_attr( $option['key'] ) . '" class="setting setting-checkbox" value="' . esc_attr( $option['value'] ) . '"' . $checked . $preview_data . '>' . "\n";
 						if ( isset( $option['suffix'] ) ) {
 							$row .= ' ' . $option['suffix'];
 						}
@@ -2900,7 +2971,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							if ( is_array( $setting ) && in_array( $key, $setting ) ) {
 								$checked = ' checked="checked"';
 							}
-							$checkboxes[] = '<input type="checkbox" name="' . esc_attr( $name ) . "-" . esc_attr( $key ) . '" class="setting-checkbox" value="yes"' . $checked . '> ' . esc_html( $label ) . "\n";
+							$checkboxes[] = '<input type="checkbox" name="' . esc_attr( $name ) . "-" . esc_attr( $key ) . '" data-key="' . esc_attr( $option['key'] ) . '" class="setting setting-checkbox setting-multicheck" value="yes"' . $checked . $preview_data . '> ' . esc_html( $label ) . "\n";
 						}
 						$row .= implode( '<br>', $checkboxes );
 
@@ -2910,14 +2981,14 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 						$radios = array();
 						foreach ( $option['options'] as $value => $label ) {
 							$checked = ( $setting == $value ) ? ' checked="checked"' : '';
-							$radios[] = '<input type="radio" class="setting-radio" name="' . esc_attr( $name ) . "' value='" . esc_attr( $value ) . '"' . $checked . '> ' . esc_html( $label ) . "\n";
+							$radios[] = '<input type="radio" data-key="' . esc_attr( $option['key'] ) . '" class="setting setting-radio" name="' . esc_attr( $name ) . "' value='" . esc_attr( $value ) . '"' . $checked . $preview_data . '> ' . esc_html( $label ) . "\n";
 						}
 						$row .= implode( '<br>', $radios );
 
 					} elseif ( 'select' == $type ) {
 
 						// --- select dropdown ---
-						$row .= '<select class="setting-select" name="' . esc_attr( $name ) . '">' . "\n";
+						$row .= '<select data-key="' . esc_attr( $option['key'] ) . '" class="setting setting-select" name="' . esc_attr( $name ) . '"' . $preview_data . '>' . "\n";
 						foreach ( $option['options'] as $value => $label ) {
 							// 1.0.9: support option grouping (set unique key containing OPTGROUP-)
 							if ( strstr( $value, '*OPTGROUP*' ) ) {
@@ -2939,7 +3010,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					} elseif ( 'multiselect' == $type ) {
 
 						// --- multiselect dropdown ---
-						$row .= '<select multiple="multiple" class="setting-select" name="' . esc_attr( $name ) . '[]">' . "\n";
+						$row .= '<select multiple="multiple" data-key="' . esc_attr( $option['key'] ) . '" class="setting setting-select setting-multiselect" name="' . esc_attr( $name ) . '[]"' . $preview_data . '>' . "\n";
 						foreach ( $option['options'] as $value => $label ) {
 							if ( '' != $value ) {
 								// 1.1.3: check for OPTGROUP instead of *OPTGROUP*
@@ -2961,14 +3032,14 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 						// 1.2.0: re-added missing csv field type
 
 						// --- text inputs ---
-						$class = 'setting-text';
-						if ( 'text' != $type ) {
-							$class .= ' setting-' . $type;
+						$class = 'setting setting-text';
+						if ( 'csv' == $type ) {
+							$class .= ' setting-csv';
 						}
 						$placeholder = isset( $option['placeholder'] ) ? $option['placeholder'] : '';
 
 						// 1.1.7: fix to attribute quoting output
-						$row .= '<input type="text" name="' . esc_attr( $name ) . '" class="' . esc_attr( $class ) . '" value="' . esc_attr( $setting ) . '" placeholder="' . esc_attr( $placeholder ) . '">' . "\n";
+						$row .= '<input type="text" name="' . esc_attr( $name ) . '" data-key="' . esc_attr( $option['key'] ) . '" class="' . esc_attr( $class ) . '" value="' . esc_attr( $setting ) . '" placeholder="' . esc_attr( $placeholder ) . '"' . $preview_data . '>' . "\n";
 						if ( isset( $option['suffix'] ) ) {
 							$row .= ' ' . $option['suffix'];
 						}
@@ -2982,7 +3053,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 						// 1.2.4: added missing esc_textarea on value
 						// 1.3.6: fixed rows attribute, added cols attribute
-						$row .= '<textarea class="setting-textarea" name="' . esc_attr( $name ) . '" rows="' . esc_attr( $rows ) . '" cols="' . esc_attr( $cols ) . '" placeholder="' . esc_attr( $placeholder ) . '">' . esc_textarea( $setting ) . '</textarea>' . "\n";
+						$row .= '<textarea name="' . esc_attr( $name ) . '" data-key="' . esc_attr( $option['key'] ) . '" class="setting setting-textarea" rows="' . esc_attr( $rows ) . '" cols="' . esc_attr( $cols ) . '" placeholder="' . esc_attr( $placeholder ) . '"' . $preview_data . '>' . esc_textarea( $setting ) . '</textarea>' . "\n";
 
 					} elseif ( ( 'numeric' == $type ) || ( 'number' == $type ) ) {
 
@@ -3001,18 +3072,18 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 							$row .= ' ' . $option['prefix'];
 						}
 						$data = esc_attr( $min ) . "," . esc_attr( $max ) . "," . esc_attr( $step );
-						$row .= '<input id="number-input-' . esc_attr( $name ) . '" class="setting-numeric" type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( $setting ) . '" placeholder="' . esc_attr( $placeholder ) . '" data="' . esc_attr( $data ) . '">' . "\n";
-						if ( isset( $option['suffix'] ) ) {
-							$row .= ' ' . $option['suffix'];
-						}
+						$row .= '<input id="number-input-' . esc_attr( $name ) . '" data-key="' . esc_attr( $option['key'] ) . '" class="setting setting-numeric" type="text" name="' . esc_attr( $name ) . '" value="' . esc_attr( $setting ) . '" placeholder="' . esc_attr( $placeholder ) . '" data="' . esc_attr( $data ) . '"' . $preview_data . '>' . "\n";
 						// $onclickup = "plugin_panel_number_step('up', '" . esc_attr( $name ) . "', " . esc_attr( $min ) . ", " . esc_attr( $max ) . ", " . esc_attr( $step ) . ");" . "\n";
 						// $row .= '<input class="setting-button button-secondary" type="button" value="+" onclick="' . $onclickup . '">' . "\n";
 						$row .= '<input class="number-button number-up-button setting-button button-secondary" type="button" value="+" data="' . esc_attr( $name ) . '">' . "\n";
-
+						if ( isset( $option['suffix'] ) ) {
+							$row .= ' ' . $option['suffix'];
+						}
 
 					} elseif ( 'image' == $type ) {
 
 						// 1.1.7: added image attachment selection from media library
+						// note: no preview data as the image IS the preview
 
 						// --- get current image ---
 						$image = wp_get_attachment_image_src( $setting, 'full' );
@@ -3033,7 +3104,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 								$hidden = ' hidden';
 							}
 							$row .= '<a class="upload-custom-image' . esc_attr( $hidden ) . '" href="' . esc_url( $upload_link ) . '">' . "\n";
-							$row .= esc_html( __( 'Add Image', 'radio-station' ) );
+							$row .= esc_html( __( 'Add Image', 'teleporter' ) );
 							$row .= '</a>' . "\n";
 
 							$hidden = '';
@@ -3041,7 +3112,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 								$hidden = ' hidden';
 							}
 							$row .= '<a class="delete-custom-image' . esc_attr( $hidden ) . '" href="#">' . "\n";
-							$row .= esc_html( __( 'Remove Image', 'radio-station' ) );
+							$row .= esc_html( __( 'Remove Image', 'teleporter' ) );
 							$row .= '</a>' . "\n";
 						$row .= '</p>' . "\n";
 
@@ -3051,12 +3122,72 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					} elseif ( 'color' == $type ) {
 
 						// 1.1.7: added color picker field
-						$row .= '<input type="text" class="color-picker" data-default-color="' . esc_attr( $option['default'] ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( $setting ) . '">' . "\n";
+						$row .= '<input type="text" class="setting color-picker" data-default-color="' . esc_attr( $option['default'] ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( $setting ) . '">' . "\n";
+						$row .= '<input type="hidden" data-key="' . esc_attr( $option['key'] ) . '" class="setting color-picker-input" value="' . esc_attr( $setting ) . '"' . $preview_data . '>' . "\n";
 
 					} elseif ( 'coloralpha' == $type ) {
 
 						// 1.1.7: added color picker alpha field
-						$row .= '<input type="text" class="color-picker" data-alpha-enabled="true" data-default-color="' . esc_attr( $option['default'] ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( $setting ) . '">' . "\n";
+						$row .= '<input type="text" class="setting color-picker" data-alpha-enabled="true" data-default-color="' . esc_attr( $option['default'] ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( $setting ) . '">' . "\n";
+						$row .= '<input type="hidden" data-key="' . esc_attr( $option['key'] ) . '" class="setting color-picker-input"  value="' . esc_attr( $setting ) . '"' . $preview_data . '>' . "\n";
+
+					} elseif ( 'preview' == $type ) {
+
+						// 1.3.8: added dynamic preview container optional
+						$settings = $this->get_settings( false );
+						$row .= '<div id="preview-' . esc_attr( $option['key'] ) . '"';
+						if ( isset( $option['width'] ) ) {
+							$row .= ' width="' . esc_attr( $option['width'] ) . '"';
+						}
+						if ( isset( $option['height'] ) ) {
+							$row .= ' height="' . esc_attr( $option['height'] ) . '"';
+						}
+						if ( isset( $option['classes'] ) ) {
+							$all_classes = $classes = explode( ',', $option['classes'] );
+							foreach ( $classes as $class ) {
+								$class = trim( $class );
+								foreach ( $settings as $key => $value ) {
+									if ( '%%' . $key . '%%' == $class ) {
+										if ( is_array( $value ) ) {
+											$value = implode( ' ', $value );
+										}
+										$all_classes[] = str_replace( '%%' . $key . '%%', $value, $class );
+									}
+								}
+							}
+							foreach ( $all_classes as $i => $class ) {
+								$all_classes[$i] = str_replace( '%%', '', $class );
+							}
+							$class_list = implode( ' ', $all_classes );
+							$row .= ' class="' . esc_attr( $class_list ) .'"';
+						}
+						$row .= '>' ."\n";
+							if ( isset( $option['html'] ) ) {
+								$html = $option['html'];
+								foreach ( $settings as $key => $value ) {
+									$find = '%%' . $key . '%%';
+									if ( strstr( $html, $find ) ) {
+										$html = str_replace( $find, $value, $html );
+									}
+								}
+								$row .= $html;
+							}
+						$row .= '</div>' . "\n";
+						
+						if ( isset( $option['css'] ) ) {
+							$css = $option['css'];
+							$target = $option['key'];
+							$target_selector = '#preview-' . esc_attr( $target );
+							$css = str_replace( '%%target%%', $target_selector, $css );
+							$settings = $this->get_settings( false );
+							foreach ( $settings as $key => $value ) {
+								$find = '%%' . $key . '%%';
+								if ( strstr( $css, $find ) ) {
+									$css = str_replace( $find, $value, $css );
+								}
+							}
+							$row .= '<style id="preview-' . esc_attr( $option['key'] ) . '-css">' . $css . '</style>' . "\n";
+						}
 
 					}
 
@@ -3065,20 +3196,103 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 
 				// --- setting helper text ---
 				if ( isset( $option['helper'] ) ) {
-					$row .= '<td width="25"></td>' . "\n";
-					$row .= '<td class="settings-helper">' . esc_html( $option['helper'] ) . '</td>' . "\n";
+					if ( 'preview' != $type ) {
+						$row .= '<td width="25"></td>' . "\n";
+						$row .= '<td class="settings-helper">' . esc_html( $option['helper'] ) . '</td>' . "\n";
+					} else {
+						$row .= '</tr><tr><td></td><td colspan="3" class="settings-helper">' . esc_html( $option['helper'] ) . '</td></tr>' . "\n";
+					}
 				}
+
 			}
 
 			$row .= '</tr>' . "\n";
 
+			// --- setting preview ---
+			// 1.3.8: added image preview option
+			if ( isset( $option['preview'] ) && isset( $option['preview']['type'] ) ) {
+				$row .= '<tr>';
+					$row .= '<td style="text-align:right;">' . esc_html( __( 'Preview', 'teleporter' ) ) . ':</td>' . "\n";
+					$row .= '<td width="25"></td>' . "\n";
+					$row .= '<td>';
+					if ( 'image' == $option['preview']['type'] ) {
+						$width = $option['preview']['width'];
+						$height = $option['preview']['height'];
+						$sources = $this->get_preview_images( $option );
+						// echo 'Image Sources: ' . print_r( $sources, true );
+						$row .= '<div class="preview-image" id="preview-' . esc_attr( $option['key'] ) . '"></div>' . "\n";
+						$row .= '<style>#preview-' . esc_attr( $option['key'] ) . ' {background-image: url("' . esc_url( $sources['source'] ) . '"); background-size: 100% 100%;';
+						$row .= 'width: ' . esc_attr( $width ) . 'px; height: ' . esc_attr( $height ) . 'px';
+						$row .= '}' . "\n";
+						if ( isset( $sources['alt'] ) && ( '' != $sources['alt'] ) ) {
+							$row .= '#preview-' . esc_attr( $option['key'] ) . ' {cursor: pointer;}' . "\n";
+							$row .= '#preview-' . esc_attr( $option['key'] ) . ':hover, #preview-' . esc_attr( $option['key'] ) . '.active {background-image: url("' . esc_url( $sources['alt'] ) . '"); background-size: 100% 100%;}' . "\n";
+						}
+						$row .= '</style>' . "\n";
+					} elseif ( 'html' == $option['preview']['type'] ) {
+						$row .= '<div class="preview-html" id="preview-' . esc_attr( $option['key'] ) . '">' . wp_kses( $option['preview']['html'], $this->allowed_html( $option ) ) . '</div>' . "\n";					
+					}
+
+					$row .= '</td>' . "\n";
+				$row .= '</tr>' . "\n";
+			}
+				
 			// --- settings row spacer ---
-			$row .= '<tr class="settings-spacer"><td> </td></tr>' . "\n";
+			$row .= '<tr class="settings-spacer"><td>';
+			if ( isset( $option['preview']['css'] ) ) {
+				/* $css = $option['preview']['css'];
+				if ( isset( $option['preview']['target'] ) ) {
+					$target = $option['preview']['target'];
+					$target_selector = '#preview-' . esc_attr( $target );
+					$css = str_replace( '%%target%%', $target_selector, $css );
+				}
+				$settings = $this->get_settings( false );
+				$css = $option['preview']['css'];
+				foreach ( $settings as $key => $value ) {
+					$find = '%%' . $key . '%%';
+					if ( strstr( $css, $find ) ) {
+						$css = str_replace( $find, $value, $css );
+					}
+				} */
+				$css = '';
+				$row .= '<style id="preview-' . esc_attr( $option['key'] ) . '-css">' . $css . '</style>';
+			}
+			$row .= '</td></tr>' . "\n";
 
 			// --- filter and return setting row ---
 			$row = apply_filters( $namespace . '_setting_row', $row, $option );
 
 			return $row;
+		}
+
+		// -----------------
+		// Get Preview Image
+		// -----------------
+		public function get_preview_images( $option ) {
+			$source = $alt = '';
+			$settings = $this->get_settings( false );
+			$setting = $this->get_setting( $option['key'], false );
+			// echo $option['key'] . ' - ' . $setting;
+			if ( isset( $option['preview']['sources'][$setting] ) ) {
+				$source = $option['preview']['sources'][$setting];
+				if ( isset( $option['preview']['sources-alt'][$setting] ) ) {
+					$alt = $option['preview']['sources-alt'][$setting];
+				}
+				foreach( $settings as $key => $value ) {
+					$find = '%%' . $key . '%%';
+					if ( strstr( $source, $find ) ) {
+						$source = str_replace( $find, $value, $source );
+					}
+					if ( strstr( $alt, $find ) ) {
+						$alt = str_replace( $find, $value, $alt );
+					}
+				}
+			}
+			$sources = array(
+				'source' => $source,
+				'alt'    => $alt,
+			);
+			return $sources;
 		}
 
 		// ---------------
@@ -3162,9 +3376,10 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 						// --- reset settings function ---
 						// 1.2.5: changed function prefix for consistency
 						// 1.2.5: changed to jQuery click function to remove onclick button attribute
-						$confirmreset = __( 'Are you sure you want to reset to default settings?', 'radio-station' );
+						$confirmreset = __( 'Are you sure you want to reset to default settings?', 'teleporter' );
 						// echo "function plugin_panel_reset_defaults() {" . "\n";
-						echo "jQuery('#settingsresetbutton').on('click', function() {" . "\n";
+						// 1.3.7: fix to use class not ID
+						echo "jQuery('.reset-button').on('click', function() {" . "\n";
 						echo "	agree = confirm('" . esc_js( $confirmreset ) . "');" . "\n";
 						echo "	if (!agree) {return false;}" . "\n";
 						echo "	document.getElementById('settings-action').value = 'reset';" . "\n";
@@ -3203,7 +3418,7 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					} elseif ( 'media_functions' == $script ) {
 
 						// --- media functions ---
-						$confirm_remove = __( 'Are you sure you want to remove this image?', 'radio-station' );
+						$confirm_remove = __( 'Are you sure you want to remove this image?', 'teleporter' );
 						echo "jQuery(function(){
 
 							var mediaframe, parentdiv;
@@ -3254,10 +3469,94 @@ if ( !class_exists( 'teleporter_loader' ) ) {
 					} elseif ( 'colorpicker_init' == $script ) {
 
 						// --- initialize color pickers ---
-						echo "jQuery(document).ready(function(){" . "\n";
-						echo "	if (jQuery('.color-picker').length) {jQuery('.color-picker').wpColorPicker();}" . "\n";
+						echo "jQuery(document).ready(function() {" . "\n";
+							echo "if (jQuery('.color-picker').length) {" . "\n";
+								echo "jQuery('.color-picker').wpColorPicker({
+									change: function(event, ui) {
+										color = ui && ui.color ? ui.color.toString() : jQuery(this).val();
+										console.log('Color changed:', color);
+										console.log(jQuery(this));
+										input = jQuery(this).closest('.settings-input').find('.color-picker-input');
+										console.log(input);
+										input.val(color).trigger('change');
+									},
+									clear: function() {console.log('Color cleared');}
+								});" . "\n";
+							echo "}" . "\n";
 						echo "});" . "\n";
 
+					} elseif ( 'previews' == $script ) {
+					
+						// --- preview classes active toggle ---
+						// 1.3.8: toggle active class on preview clicks
+						echo "jQuery('.preview-image, .preview-button').on('click', function(e) {
+							/* if (jQuery(this).data('toggling')) {return;}
+							jQuery(this).data('toggling', true); */
+							if (!jQuery(this).hasClass('active')) {jQuery(this).addClass('active');}
+							else {jQuery(this).removeClass('active');}
+							/* setTimeout(() => jQuery(this).removeData('toggling'), 50); */
+						});" . "\n";
+						
+						// --- add classes and preview css ---
+						// 1.3.8: added for previews
+						echo "jQuery(document).ready(function() {					
+							jQuery('.setting').each(function() {
+								if (jQuery(this).attr('data-preview') == '1') {
+									jQuery(this).on('change', function() {
+										console.log(jQuery(this));
+										linked = jQuery(this).attr('data-linked');
+										if (typeof linked != 'undefined') {
+											jQuery('.setting').each(function() {
+												if (jQuery(this).attr('data-key') == linked) {
+													console.log('trigger change for linked setting: '+linked);
+													jQuery(this).trigger('change');
+												}
+											});
+										}
+										/* target = jQuery(this).attr('data-target'); */
+										key = jQuery(this).attr('data-key');
+										css = jQuery(this).attr('data-css');
+										if (typeof css == 'undefined') {css = '';}
+										settings = jQuery(this).attr('data-settings');
+										if (typeof settings == 'undefined') {settings = [key];}
+										else if (settings.indexOf(',') > -1) {settings = settings.split(',');}
+										else {settings = [settings];}
+										console.log(settings);
+										for (i = 0; i < settings.length; i++) {
+											value = null; values = []; options = [];
+											jQuery('.setting').each(function() {
+												if (jQuery(this).attr('data-key') == settings[i]) {
+													if (!jQuery(this).hasClass('setting-multicheck') && !jQuery(this).hasClass('setting-radio')) {
+														value = jQuery(this).val();
+														values = [value];
+														console.log(settings[i]+' -> '+value);
+													} else {
+														/* TODO: multiselect */
+														val = jQuery(this).val();
+														options.push(val);
+														if (jQuery(this).prop('checked')) {values.push(val);}
+													}
+												}
+											});
+											if (jQuery('.'+settings[i]).length) {
+												jQuery('.'+settings[i]).each(function() {
+													for (j = 0; j < options.length; j++) {jQuery(this).removeClass(options[j]);}
+													for (j = 0; j < values.length; j++) {jQuery(this).addClass(values);}
+												});
+											}
+											find = '%%'+settings[i]+'%%';
+											if (value != null) {css = css.replaceAll(find,value);}
+										}
+										if (typeof custom_css_preview == 'function' ) {css = custom_css_preview(css);}
+										jQuery('#preview-'+key+'-css').html(css);
+
+										/* selector = jQuery(this).attr('data-selector');
+										property = jQuery(this).attr('data-property');
+										jQuery('#'+selector).css({property:value}); */
+									});
+								}
+							});
+						});" . "\n";
 					}
 
 				}
@@ -3640,6 +3939,11 @@ if ( !function_exists( 'teleporter_load_prefixed_functions' ) ) {
 // =========
 // CHANGELOG
 // =========
+
+// == 1.3.8 ==
+// - fix: explicitly set class options variable on construct
+// - added setting preview containers and preview images
+// - added allowed HTML data and min/max attributes for previews
 
 // == 1.3.7 ==
 // - updates for loading delayed string translations

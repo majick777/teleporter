@@ -34,21 +34,25 @@ function teleporter_transition_page(href) {
 		/* if (teleporter.debug) {console.log(t_topwin.stateurls);} */
 		stateurls = t_topwin.stateurls;
 		for (i in stateurls) {
-			/* if (teleporter.debug) {console.log(link.href+' - '+i+': '+stateurls[i]);} */
 			if (stateurls[i] == href) {
+				/* if (teleporter.debug) {console.log(href+' - '+i+': '+stateurls[i]);} */
 				if (i == t_topwin.currentstate) {
 					/* if (teleporter.debug) {console.log('Keeping Current State ('+t_topwin.currentstate+')');} */
 					return false;
 				}
 				/* if (teleporter.debug) {console.log('Switching to Existing State: '+i);} */
 				switchstate = teleporter_switch_state(i);
+				/* if (teleporter.debug) {console.log('SWITCHSTATE:'+switchstate);} */
 				if (!switchstate) {return false;}
+
 				title = t_topwin.statetitles[i];
-				var obj = {id: i, title: title, url: href};
+				timestamp = (new Date()).getTime();
+				var obj = {id: i, title: title, url: href, timestamp: timestamp};
 				t_topwin.t_pushing = true;
-				if (typeof t_topwin.History == 'function') {t_topwin.History.replaceState(obj, title, href);}
-				else if (t_topwin.history) {t_topwin.history.replaceState(obj, title, href);}
+				if (typeof t_topwin.History == 'function') {t_topwin.History.pushState(obj, title, href);}
+				else if (t_topwin.history) {t_topwin.history.pushState(obj, title, href);}
 				/* if (teleporter.debug) {
+					console.log('NEW PAGE PUSHED:');
 					if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
 					else if (t_topwin.history) {console.log(t_topwin.history.state);}
 				} */
@@ -78,7 +82,7 @@ function teleporter_transition_check(url, win) {
 		href = t_topwin.location.href;
 		titletag = win.document.getElementsByTagName('title');
 		if (titletag.length) {title = titletag[0].innerHTML;} else {title = '';}
-		stateid = teleporter_push_state(href, title);
+		stateid = teleporter_replace_state(href, title);
 		t_topwin.windowstateid = stateid;
 
 	} else {
@@ -112,8 +116,9 @@ function teleporter_check_for_first_iframe(url, stateid) {
 		iframe = iframes[0];
 		if (!iframe.classList.contains('checked')) {
 			/* repush the state for first iframe (back/forth) */
-			teleporter_push_state(t_topwin.stateurls[0], t_topwin.statetitles[0]);
-			teleporter_push_state(t_topwin.stateurls[1], t_topwin.statetitles[1]);
+			/* if (teleporter.debug) {console.log('Repushing First Frame State');} */
+			/* teleporter_push_state(t_topwin.stateurls[0], t_topwin.statetitles[0]);
+			teleporter_push_state(t_topwin.stateurls[1], t_topwin.statetitles[1]); */
 			iframe.classList.add('checked');
 		}
 	}
@@ -159,16 +164,16 @@ function teleporter_show_iframe(href, win, stateid) {
 	/* teleporter_switch_state(stateid); */
 }
 
-/* --- Push State --- */
-/* 1.0.0: separated function to allow for timeout usage */
-function teleporter_push_state(href, title) {
-
-	/* if (teleporter.debug) {console.log('Current State: '+t_topwin.currentstate);} */
+/* --- Replace State --- */
+function teleporter_replace_state(href, title) {
+	
+	initial = false; timestamp = (new Date()).getTime();
 	if (typeof t_topwin.stateurls === 'undefined') {
-		t_topwin.windowstateid = 0; stateid = 0;
-		/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+		t_topwin.windowstateid = 0; stateid = 0; initial = true;
+		/* if (teleporter.debug) {console.log('Loaded Window with New State');} */
 		stateurls = []; stateurls[0] = href; t_topwin.stateurls = stateurls;
 		statetitles = []; statetitles[0] = title; t_topwin.statetitles = statetitles;
+		statehistory = []; statehistory[0] = timestamp; t_topwin.statehistory = statehistory;
 	} else {
 		found = false;
 		for (i = 0; i < t_topwin.stateurls.length; i++) {
@@ -182,22 +187,71 @@ function teleporter_push_state(href, title) {
 			stateid = t_topwin.stateurls.length;
 			t_topwin.stateurls[stateid] = href;
 			if (title) {t_topwin.statetitles[stateid] = title;} else {title = '';}
-			/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+			/* if (teleporter.debug) {console.log('Loaded Window with State '+stateid);} */
+		}
+		t_topwin.statehistory.push(timestamp);
+	}
+
+	/* if (teleporter.debug) {
+		console.log('State Before ReplaceState:');
+		if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
+		else if (t_topwin.history) {console.log(t_topwin.history.state);}
+	} */
+	var obj = {id: stateid, title: title, url: href, timestamp: timestamp};
+	if (typeof t_topwin.History == 'function') {t_topwin.History.replaceState(obj, title, href);}
+	else if (t_topwin.history) {t_topwin.history.replaceState(obj, title, href);}
+	/* if (teleporter.debug) {
+		console.log('State After ReplaceState:');
+		if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
+		else if (t_topwin.history) {console.log(t_topwin.history.state);}
+	} */
+	
+	t_topwin.currentstate = stateid;
+	return stateid;
+}
+
+
+/* --- Push State --- */
+/* 1.0.0: separated function to allow for timeout usage */
+function teleporter_push_state(href, title) {
+
+	/* if (teleporter.debug) {console.log('Current State: '+t_topwin.currentstate);} */
+	timestamp = (new Date()).getTime();
+
+	found = false;
+	for (i = 0; i < t_topwin.stateurls.length; i++) {
+		if (t_topwin.stateurls[i] == href) {
+			found = true; stateid = i;
+			if (title) {t_topwin.statetitles[i] = title;}
+			else if (typeof t_topwin.statetitles[i] != 'undefined') {title = t_topwin.statetitles[i];}
 		}
 	}
+	if (!found) {
+		stateid = t_topwin.stateurls.length;
+		t_topwin.stateurls[stateid] = href;
+		if (title) {t_topwin.statetitles[stateid] = title;} else {title = '';}
+		/* if (teleporter.debug) {console.log('Loaded Window with New State '+stateid);} */
+	}
+	t_topwin.statehistory.push(timestamp);
+
+	if (typeof t_topwin.History == 'function') {historystate = t_topwin.History.getState();}
+	else if (t_topwin.history) {historystate = t_topwin.history.state;}
+	t_topwin.previousstate = historystate;
 
 	/* if (teleporter.debug) {
 		console.log('Setting Window PushState');
 		console.log('ID: '+stateid+' - Title: '+title+' - URL: '+href);
 		console.log(t_topwin.stateurls); console.log(t_topwin.statetitles);
+		console.log('State Before PushState:'); console.log(historystate);
 	} */
-	var obj = {id: stateid, title: title, url: href};
+	var obj = {id: stateid, title: title, url: href, timestamp: timestamp};
 	t_topwin.t_pushing = true;
 	if (typeof t_topwin.History == 'function') {t_topwin.History.pushState(obj, title, href);}
 	else if (t_topwin.history) {t_topwin.history.pushState(obj, title, href);}
 	t_topwin.t_pushing = false;
 	teleporter_custom_event('teleporter-state-pushed', obj);
 	/* if (teleporter.debug) {
+		console.log('After PushState History State:');
 		if (typeof t_topwin.History == 'function') {console.log(t_topwin.History.getState());}
 		else if (t_topwin.history) {console.log(t_topwin.history.state);}
 	} */
@@ -378,7 +432,7 @@ function teleporter_add_popstate_checker() {
 		/* ref: https://github.com/browserstate/history.js */
 		(function(window,undefined) {
 			History.Adapter.bind(window, 'statechange', function (event) {
-				/* if (teleporter.debug) {console.log('State Change Event');} */
+				/* if (teleporter.debug) {console.log('State Change Event'); console.log(event);} */
 				teleporter_custom_event('teleporter-popstate-event', {event: event});
 				teleporter_popstate_checker(event);
 			});
@@ -386,7 +440,7 @@ function teleporter_add_popstate_checker() {
 	} else {
 		/* add main popstate event listener */
 		window.addEventListener('popstate', function(event) {
-			/* if (teleporter.debug) {console.log('Window PopState Event');} */
+			/* if (teleporter.debug) {console.log('Window PopState Event'); console.log(event);} */
 			teleporter_custom_event('teleporter-popstate-event', {event: event});
 			teleporter_popstate_checker(event);
 		}, false );
@@ -422,9 +476,9 @@ function teleporter_popstate_checker(event) {
 	/* if (teleporter.debug) {if (event.state) {console.log('History Event State:'); console.log(event);} } */
 	if (typeof t_topwin.History != 'undefined') {
 		state = t_topwin.History.getState();
+		/* if (teleporter.debug) {console.log(state);} */
 		if (state.data.id) {stateid = state.data.id;}
 		else {
-			/* if (teleporter.debug) {console.log(state);} */
 			for (i = 0; i < t_topwin.stateurls.length; i++) {
 				if (stateurls[i] == state.url) {stateid = i;}
 			}
@@ -459,7 +513,7 @@ function teleporter_popstate_checker(event) {
 			if (state.url == t_topwin.t_initialurl) {
 				t_topwin.backclicked = true;
 				if (typeof t_topwin.History == 'function') {t_topwin.History.back();}
-				else if (t_topwin.history) {history.back();}
+				else {history.back();}
 			} else {
 				/* lost from history so just load it */
 				teleporter_transition_page(state.url);
@@ -481,7 +535,7 @@ function teleporter_popstate_checker(event) {
 function teleporter_switch_state(stateid) {
 
 	/* check conditions */
-	if (typeof t_topwin.windowstateid == 'undefined') {return;}
+	if (typeof t_topwin.windowstateid == 'undefined') {return false;}
 	if (typeof t_topwin.currentstate == 'undefined') {t_topwin.currentstate = 0;}
 	if (stateid == t_topwin.currentstate) {
 		/* if (teleporter.debug) {console.log('Keeping Existing State ('+stateid+')');} */
@@ -509,6 +563,7 @@ function teleporter_switch_state(stateid) {
 	/* if (teleporter.debug) {console.log('New Current State: '+t_topwin.currentstate);} */
 
 	teleporter_custom_event('teleporter-transitioned', {stateid: stateid});
+	return true;
 }
 
 /* --- Switch to Top State --- */
@@ -547,7 +602,7 @@ function teleporter_switch_to_top(stateid) {
 		}
 	}
 	
-	teleporter_push_state(href, false);
+	/* teleporter_replace_state(href, false); */
 	return true;
 }
 
@@ -609,8 +664,8 @@ function teleporter_switch_to_iframe(stateid) {
 		teleporter_set_window_title(t_topwin.statetitles[stateid]);
 		
 		/* 1.0.8: push new state */
-		href = t_topwin.stateurls[stateid];
-		teleporter_push_state(href, false);
+		/* href = t_topwin.stateurls[stateid]; */
+		/* teleporter_replace_state(href, false); */
 		
 		return true;
 	}
@@ -648,7 +703,7 @@ function teleporter_window_body_restore() {
 
 /* --- Add (Missing) Transition Iframe --- */
 function teleporter_add_iframe(href) {
-	teleporter_push_state(href, false);
+	/* teleporter_push_state(href, false); */
 	if (typeof t_topwin.teleport_add_iframe_via_top == 'function') {
 		return t_topwin.teleport_add_iframe_via_top(href);
 	}
@@ -935,6 +990,56 @@ function teleporter_dynamic_link_clicks() {
 	});
 }
 
+/* --- record navigation debugger --- */
+function teleporter_record_history(state, url, title) {
+	maxEntries = 50; now = Date.now();
+	item = {state: state, url: url, title: title, timestamp: now};
+	raw = sessionStorage.getItem('teleporter_nav_history');
+	arr = raw ? JSON.parse(raw) : [];
+	last = arr[arr.length - 1];
+	if (!last || last.url !== url) {arr.push(item);}
+	if (arr.length > maxEntries) {arr.splice(0, arr.length - maxEntries);}
+	sessionStorage.setItem('teleporter_nav_history', JSON.stringify(arr));
+}
+
+/* --- get navigation history debugger --- */
+function teleporter_get_history() {
+  raw = sessionStorage.getItem('teleporter_nav_history');
+  data = raw ? JSON.parse(raw) : [];
+  console.log('Navigation History:'); console.log(data);
+  return data;
+}
+
+/* --- debug history API overrides --- */
+function teleporter_debug_history() {
+	if (teleporter.debug && (teleporter_top_window() == window.self)) {
+		console.log('Adding History Recording');
+		sessionStorage.removeItem('teleporter_nav_history');
+		window.origPushState = history.pushState;
+		history.pushState = function(state, title, url) {
+			console.log('Push State with History Recording');
+			origPushState.apply(this,arguments);
+			console.log('Current State: '+t_topwin.currentstate);
+			teleporter_record_history(state,url,title);
+			teleporter_get_history();
+		};
+		window.origReplaceState = history.replaceState;
+		history.replaceState = function(state, title, url) {
+			console.log('Replace State with History Recording');
+			origReplaceState.apply(this,arguments);
+			console.log('Current State: '+t_topwin.currentstate);
+			teleporter_record_history(state,url,title);
+			teleporter_get_history();
+		};
+		window.addEventListener('teleporter-popstate-event', function(ev) {
+			console.log('POPSTATE EVENT: '+ev);
+		});
+		window.addEventListener('popstate', () => {
+			stateid = t_topwin.currentstate;
+			teleporter_record_history(stateid, location.href, document.title);
+		});
+	}
+}	
 
 /* --- Add Onclick Loading to Page Links --- */
 if (typeof window.jQuery !== 'undefined') {
@@ -958,6 +1063,9 @@ if (typeof window.jQuery !== 'undefined') {
 
 		/* 1.0.4: try to account for links added later */
 		setTimeout(function() {teleporter_add_link_events();}, 5000);
+
+		/* 1.1.4: debug history API calls */
+		/* teleporter_debug_history(); */
 	});
 
 } else {
@@ -993,6 +1101,7 @@ if (typeof window.jQuery !== 'undefined') {
 				readyEventHandlersInstalled = true;
 			}
 		}
+		
 	})('documentReady', window);
 
 	/* add onclicks to links with Javascript only */
@@ -1013,6 +1122,8 @@ if (typeof window.jQuery !== 'undefined') {
 		teleporter_add_popstate_checker();
 
 		setTimeout(function() {teleporter_add_link_onclicks();}, 5000);
+		
+		/* teleporter_debug_history(); */
 	});
 }
 
