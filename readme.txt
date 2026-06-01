@@ -4,7 +4,7 @@ Donate link: https://wordquest.org/contribute/?plugin=teleporter
 Tags: transition, page transition, single page application, ajax page load
 Requires at least: 4.0.0
 Tested up to: 6.9
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,9 @@ You can run Teleporter in debug mode by appending `?teleporter-debug=1` to any U
 
 
 == Changelog ==
+
+= 1.1.5 =
+* Added: touchscreen ignore link classes (eg. for mobile menus)
 
 = 1.1.4 =
 * Update: Plugin Panel (1.3.8) - set options on construct
