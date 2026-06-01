@@ -7,11 +7,15 @@
 /* 1.0.6: added existing definition check */
 /* 1.1.3: added prompton and externalize settings */
 /* 1.1.3: removed refresh setting as applied elsewhere */
+/* 1.1.5: added touchignore class support */
 if (typeof teleporter == 'undefined') {
-	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, prompton: '404', externalize: true, ignore: ['.no-transition','.no-teleporter'], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': '' };
+	var teleporter = {debug: false, fadetime: 2000, timeout: 10000, prompton: '404', externalize: true, ignore: ['.no-transition','.no-teleporter'], touchignore: [], dynamic: [], iframe: 'teleporter-iframe', loading: 'teleporter-loading', 'siteurl': '' };
 }
 
 /* --- Set Initial Variables --- */
+/* 1.1.5: added check for touchscreens */
+matchmedia = window.matchMedia || window.msMatchMedia;
+var t_touch; t_touch = !matchmedia('(any-pointer: fine)').matches;
 var t_topwin; t_topwin = teleporter_top_window();
 if (typeof t_topwin.t_loading == 'undefined') {t_topwin.t_loading = false;}
 if (typeof t_topwin.t_loaded == 'undefined') {t_topwin.t_loaded = false;}
@@ -797,6 +801,14 @@ function teleporter_skip_link(el) {
 		a = t_topwin.location.protocol+'//'+t_topwin.location.host;
 		b = '//'+t_topwin.location.host;
 		if ((u.indexOf(a) === 0) || (u.indexOf(b) === 0)) {skip = false;}
+	}
+
+	/* check against touchscreen ignore classes */
+	/* 1.1.5: added touchscreen ignore classes */
+	if (!skip && t_touch && teleporter.touchignore.length) {
+		for (i in teleporter.touchignore) {
+			if (el.matches(teleporter.touchignore[i])) {skip = true;}
+		}
 	}
 
 	/* check against ignore classes */

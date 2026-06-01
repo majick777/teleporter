@@ -5,7 +5,7 @@ Plugin Name: Teleporter
 Plugin URI: https://wordquest.org/plugins/teleporter/
 Author: Tony Hayes
 Description: Seamless fading Page Transitions via the Browser History API
-Version: 1.1.4
+Version: 1.1.5
 Author URI: https://wordquest.org
 GitHub Plugin URI: majick777/teleporter
 */
@@ -269,6 +269,16 @@ function teleporter_get_plugin_options( $admin = false ) {
 			'label'   => $admin ? __( 'Ignore Link Classes', 'teleporter' ) : '',
 			'default' => 'no-teleporter,no-transition,thickbox,wplightbox',
 			'helper'  => $admin ? __( 'Any links with these classes will not be transitioned. (Comma separated list of classes to ignore.)', 'teleporter' ) : '',
+			'section' => 'advanced',
+		),
+
+		// --- Touchscreen Ignore Link Classes ---
+		// 1.1.5: added touchscreen ignore classes
+		'touch_ignore_link_classes' => array(
+			'type'    => 'csv',
+			'label'   => $admin ? __( 'Touchscreen Ignore Classes', 'teleporter' ) : '',
+			'default' => '',
+			'helper'  => $admin ? __( 'Any links with these classes will not be transitioned for touchscreens. (Comma separated list of classes to ignore.)', 'teleporter' ) : '',
 			'section' => 'advanced',
 		),
 
@@ -644,6 +654,60 @@ function teleporter_localize_settings() {
 	}
 	$ignore .= ']';
 
+	// --- set touchscreen ignore classes ---
+	// 1.1.5: added touchscreen ignore classes
+	$touchignore_classes = teleporter_get_setting( 'touch_ignore_link_classes' );
+	$touchignore_classes = apply_filters( 'teleporter_touch_ignore_classes', $touchignore_classes );
+	$touchignore = '[';
+
+	if ( $touchignore_classes && is_string( $touchignore_classes ) ) {
+		if ( strstr( $touchignore_classes, ',' ) ) {
+			$touchignore_classes = explode( ',', $touchignore_classes );
+		} else {
+			$touchignore_classes = array( $touchignore_classes );
+		}
+	}
+	
+	if ( is_array( $touchignore_classes ) && !empty( $touchignore_classes ) && ( count( $touchignore_classes ) > 0 ) ) {
+		foreach ( $touchignore_classes as $i => $touchignore_class ) {
+			if ( $i > 0 ) {
+				$touchignore .= ',';
+			}
+			$touchignore .= "'." . esc_js( trim( $touchignore_class ) ) . "'";
+		}
+	}
+
+	// 1.1.5: add filter for other more specific (not just class) selectors
+	$touchignore_selectors = apply_filters( 'teleporter_touch_ignore_selectors', '' );
+	if ( $touchignore_selectors && is_string( $touchignore_selectors ) ) {
+		if ( strstr( $touchignore_selectors, ',' ) ) {
+			$touchignore_selectors = explode( ',', $touchignore_selectors );
+		} else {
+			$touchignore_selectors = array( $touchignore_selectors );
+		}
+	}
+	if ( is_array( $touchignore_selectors ) && ( count( $touchignore_selectors ) > 0 ) ) {
+		foreach ( $touchignore_selectors as $touchignore_selector ) {
+			if ( strlen( $touchignore ) > 1 ) {
+				$touchignore .= ',';
+			}
+			if ( strstr( $touchignore_selector, '>' ) ) {
+				$parts = explode( '>', trim( $touchignore_selector ) );
+				$touchignore .= "'";
+				foreach( $parts as $i => $part ) {
+					$touchignore .= esc_js( $part );
+					if ( ( $i + 1 ) < count( $parts ) ) {
+						$touchignore .= '>';
+					}
+				}
+				$touchignore .= "'";
+			} else {
+				$touchignore .= "'" . esc_js( trim( $touchignore_selector ) ) . "'";
+			}
+		}
+	}
+	$touchignore .= ']';
+
 	// --- set dynamic link classes ---
 	// 1.0.4: added for dynamic links
 	$dynamic_classes = teleporter_get_setting( 'dynamic_link_classes' );
@@ -719,6 +783,7 @@ function teleporter_localize_settings() {
 	// 1.0.4: added dynamic classes setting
 	// 1.1.3: added prompt setting
 	// 1.1.3: added externalize setting
+	// 1.1.5: added touchscreen ignore setting
 	$js = "var teleporter = {";
 		$js .= "debug: " . esc_js( $debug ) . ", ";
 		$js .= "fadetime: " . esc_js( $fade_time ) . ", ";
@@ -726,6 +791,7 @@ function teleporter_localize_settings() {
 		$js .= "prompton: '" . esc_js( $prompt ) . "', ";
 		$js .= "externalize: " . esc_js( $external ) . ", ";
 		$js .= "ignore: " . $ignore . ", ";
+		$js .= "touchignore: " . $touchignore . ", ";
 		$js .= "dynamic: " . $dynamic . ", ";
 		$js .= "iframe: " . $iframe . ", ";
 		$js .= "loading: " . $loading . ", ";
