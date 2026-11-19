@@ -807,7 +807,8 @@ function teleporter_custom_event(name, detail) {
 	CustomEvent.prototype = window.Event.prototype;
 	window.CustomEvent = CustomEvent;
 })();
-addEventListener('unload', function(event) {
+addEventListener('pagehide', function(event) {
+	if (event.persisted) {return;}
 	t_topwin.windowstateid = 'undefined';
 }, false);
 document.addEventListener('keydown', (event) => {

@@ -1160,7 +1160,10 @@ function teleporter_custom_event(name, detail) {
 })();
 
 /* --- Remove Window State ID on Unload --- */
-addEventListener('unload', function(event) {
+/* 1.1.6: use pagehide as browsers now block unload listeners */
+/* (skip when persisted, ie. page is kept in back/forward cache, matching unload) */
+addEventListener('pagehide', function(event) {
+	if (event.persisted) {return;}
 	t_topwin.windowstateid = 'undefined';
 }, false);
 
